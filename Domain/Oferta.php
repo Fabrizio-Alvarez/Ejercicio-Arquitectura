@@ -1,5 +1,7 @@
 <?php
-class Oferta {
+declare(strict_types=1);
+
+Final Class Oferta {
     private $producto;
     private $descuento;
 

@@ -1,5 +1,7 @@
 <?php
-class ProductoEnCarro {
+declare(strict_types=1);
+
+Final Class ProductoEnCarro {
     private $producto;
     private $precio;
     private $cantidad;

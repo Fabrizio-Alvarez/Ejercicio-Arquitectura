@@ -1,5 +1,7 @@
 <?php
-class Producto {
+declare(strict_types=1);
+
+Final Class Producto {
     private $nombre;
     private $codigo;
 

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-Final Class ProductoEnGondola {
+Final Class Cajera {
     private $producto;
     private $precio;
     private $stock;

@@ -1,5 +1,7 @@
 <?php
-class Precio {
+declare(strict_types=1);
+
+Final Class Precio {
     private $monto;
     private $moneda;
 
