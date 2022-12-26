@@ -1,0 +1,15 @@
+{
+    "name": "falvarez/ejercicio-arquitectura",
+    "autoload": {
+        "psr-4": {
+            "": "app/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Fabrizio-Alvarez",
+            "email": "fabrizioalvrz@gmail.com"
+        }
+    ],
+    "require": {}
+}
