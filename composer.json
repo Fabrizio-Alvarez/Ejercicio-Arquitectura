@@ -11,5 +11,11 @@
             "email": "fabrizioalvrz@gmail.com"
         }
     ],
-    "require": {}
+    "require": {
+        "slim/slim": "4.*",
+        "slim/psr7": "^1.6"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    }
 }
