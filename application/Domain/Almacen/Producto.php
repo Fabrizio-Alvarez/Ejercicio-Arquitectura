@@ -1,16 +1,20 @@
 <?php
 declare(strict_types=1);
+namespace Domain\Almacen;
+
+use Exception;
 
 Final Class Producto {
-    private $nombre;
-    private $codigo;
+    private string $id;
+    private string $nombre;
+    private string $codigo;
+    private int $stock;
 
-    public function __construct(string $nombre, string $codigo)
+    public function __construct(string $nombre, string $codigo, int $stock)
     {
-        $this->validarNombre($nombre);
-        $this->validarCodigo($codigo);
         $this->nombre = $nombre;
         $this->codigo = $codigo;
+        $this->stock = $stock;
     }
 
     private function validarNombre(string $nombre)

@@ -23,5 +23,10 @@ Final Class Precio {
             throw new Exception();
         }
     }
+
+    public function getMonto():float
+    {
+        return $this->monto;
+    }
 }
 ?>
