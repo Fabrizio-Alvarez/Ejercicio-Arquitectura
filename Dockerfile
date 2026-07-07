@@ -7,7 +7,7 @@ COPY composer.json composer.lock artisan ./
 COPY database/ database/
 RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
 
-FROM php:8.3-cli-alpine
+FROM php:8.4-cli-alpine
 
 WORKDIR /var/www/html
 
