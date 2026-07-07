@@ -140,3 +140,14 @@ Test pyramid:
 
 Original requirements: [`docs/specs/Especificaciones funcionales.md`](docs/specs/Especificaciones%20funcionales.md)
 and [`docs/specs/Especificaciones no funcionales.md`](docs/specs/Especificaciones%20no%20funcionales.md).
+
+---
+
+## Deploy
+
+Single container via `Dockerfile` (reads `PORT`, runs migrations + seeds demo data on start). On [Railway](https://railway.app):
+
+1. **New Project → Deploy from GitHub repo** → this repo.
+2. Railway detects the `Dockerfile`, builds and deploys (it injects `PORT`).
+3. Settings → Networking → **Generate Domain** → public URL.
+4. Try `<url>/up` (health) and `<url>/api/stock`.
