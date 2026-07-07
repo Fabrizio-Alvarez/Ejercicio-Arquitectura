@@ -1,0 +1,10 @@
+services:
+  # Local dev container. Run composer/artisan/pest through it, e.g.:
+  #   docker compose run --rm app composer install
+  #   docker compose run --rm app php vendor/bin/pest
+  app:
+    image: composer:2
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    command: ["tail", "-f", "/dev/null"]

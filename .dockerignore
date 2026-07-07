@@ -1,0 +1,7 @@
+/vendor
+.git
+.github
+node_modules
+docker-compose.yml
+*.md
+!README.md
