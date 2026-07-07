@@ -30,6 +30,29 @@ final class Sale
     ) {
         $this->status = SaleStatus::Pending;
     }
+    /**
+     * Reconstitute a sale from persisted state. Bypasses the public mutating
+     * API and its invariants — used only to load trusted, already-valid data.
+     *
+     * @param SaleLine[] $lines
+     */
+    public static function reconstitute(
+        string $id,
+        string $cashierId,
+        string $customerName,
+        \DateTimeImmutable $createdAt,
+        SaleStatus $status,
+        array $lines,
+    ): self {
+        $sale = new self($id, $cashierId, $customerName, $createdAt);
+        $sale->status = $status;
+
+        foreach ($lines as $line) {
+            $sale->lines[] = $line;
+        }
+
+        return $sale;
+    }
 
     public function id(): string
     {
