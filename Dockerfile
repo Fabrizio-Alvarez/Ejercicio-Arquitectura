@@ -25,5 +25,5 @@ RUN cp .env.example .env \
 
 EXPOSE 8000
 
-# Run migrations then serve on the port the provider injects (default 8000).
-CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+# Migrate + seed the demo dataset, then serve on the provider's port.
+CMD ["sh", "-c", "php artisan migrate --force --seed && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
