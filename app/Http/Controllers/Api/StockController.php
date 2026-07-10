@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
-use Supermarket\Application\Stock\ListarStock;
+use Supermercado\Application\Stock\ListarStock;
 
 final class StockController extends Controller
 {

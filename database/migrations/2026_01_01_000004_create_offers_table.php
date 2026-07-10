@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('offers', function (Blueprint $table) {
+        Schema::create('ofertas', function (Blueprint $table) {
             // Per the spec, offers are loaded by an external system directly
             // into the data source — the application only reads them.
             $table->id();
@@ -26,6 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('offers');
+        Schema::dropIfExists('ofertas');
     }
 };

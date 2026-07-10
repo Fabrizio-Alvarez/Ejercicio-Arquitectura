@@ -1,19 +1,19 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Supermarket\Application\Stock\ListarStock;
-use Supermarket\Domain\Stock\Shelf;
-use Supermarket\Domain\Stock\ShelfRepository;
-use Supermarket\Domain\Stock\Warehouse;
-use Supermarket\Domain\Stock\WarehouseRepository;
+use Supermercado\Application\Stock\ListarStock;
+use Supermercado\Domain\Stock\Gondola;
+use Supermercado\Domain\Stock\GondolaRepository;
+use Supermercado\Domain\Stock\Deposito;
+use Supermercado\Domain\Stock\DepositoRepository;
 
 uses(RefreshDatabase::class);
 
 it('lists the stock view across all products with low flags', function () {
-    app(ShelfRepository::class)->save(new Shelf('p-1', 45));       // healthy
-    app(ShelfRepository::class)->save(new Shelf('p-2', 20));       // low shelf
-    app(WarehouseRepository::class)->save(new Warehouse('p-1', 500));
-    app(WarehouseRepository::class)->save(new Warehouse('p-2', 120)); // low warehouse
+    app(GondolaRepository::class)->save(new Gondola('p-1', 45));       // healthy
+    app(GondolaRepository::class)->save(new Gondola('p-2', 20));       // low shelf
+    app(DepositoRepository::class)->save(new Deposito('p-1', 500));
+    app(DepositoRepository::class)->save(new Deposito('p-2', 120)); // low warehouse
 
     $views = app(ListarStock::class)->execute();
 

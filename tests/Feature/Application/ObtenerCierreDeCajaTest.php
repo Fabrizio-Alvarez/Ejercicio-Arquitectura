@@ -1,20 +1,20 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Supermarket\Application\Sales\ObtenerCierreDeCaja;
-use Supermarket\Domain\Sales\Sale;
-use Supermarket\Domain\Sales\SaleLine;
-use Supermarket\Domain\Sales\SaleRepository;
-use Supermarket\Domain\Shared\Money;
+use Supermercado\Application\Ventas\ObtenerCierreDeCaja;
+use Supermercado\Domain\Ventas\Venta;
+use Supermercado\Domain\Ventas\LineaDeVenta;
+use Supermercado\Domain\Ventas\VentaRepository;
+use Supermercado\Domain\Comun\Dinero;
 
 uses(RefreshDatabase::class);
 
-function confirmSale(string $id, string $cashier, string $customer, string $date, int $amount): Sale
+function confirmSale(string $id, string $cashier, string $customer, string $date, int $amount): Venta
 {
-    $sale = new Sale($id, $cashier, $customer, new \DateTimeImmutable($date));
-    $sale->addLine(new SaleLine('p-1', 'Item', 1, new Money($amount, 'ARS')));
+    $sale = new Venta($id, $cashier, $customer, new \DateTimeImmutable($date));
+    $sale->addLine(new LineaDeVenta('p-1', 'Item', 1, new Dinero($amount, 'ARS')));
     $sale->confirm();
-    app(SaleRepository::class)->save($sale);
+    app(VentaRepository::class)->save($sale);
 
     return $sale;
 }
@@ -28,5 +28,5 @@ it('builds the cash close for a cashier on a given day', function () {
     $close = app(ObtenerCierreDeCaja::class)->execute('cashier-1', new \DateTimeImmutable('2026-01-15'));
 
     expect($close->count())->toBe(2)
-        ->and($close->total())->toEqual(new Money(450, 'ARS'));
+        ->and($close->total())->toEqual(new Dinero(450, 'ARS'));
 });

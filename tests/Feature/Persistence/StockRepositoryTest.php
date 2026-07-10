@@ -1,16 +1,16 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Supermarket\Domain\Stock\ShelfRepository;
-use Supermarket\Domain\Stock\WarehouseRepository;
+use Supermercado\Domain\Stock\GondolaRepository;
+use Supermercado\Domain\Stock\DepositoRepository;
 
 uses(RefreshDatabase::class);
 
-describe('Shelf persistence', function () {
+describe('Gondola persistence', function () {
     it('persists and retrieves a shelf', function () {
-        $repo = app(ShelfRepository::class);
+        $repo = app(GondolaRepository::class);
 
-        $repo->save(new \Supermarket\Domain\Stock\Shelf('p-1', 45));
+        $repo->save(new \Supermercado\Domain\Stock\Gondola('p-1', 45));
 
         $found = $repo->find('p-1');
 
@@ -20,9 +20,9 @@ describe('Shelf persistence', function () {
     });
 
     it('saves the updated quantity after a restock', function () {
-        $repo = app(ShelfRepository::class);
+        $repo = app(GondolaRepository::class);
 
-        $shelf = new \Supermarket\Domain\Stock\Shelf('p-1', 20);
+        $shelf = new \Supermercado\Domain\Stock\Gondola('p-1', 20);
         $repo->save($shelf);
 
         $shelf->restock(30);
@@ -32,11 +32,11 @@ describe('Shelf persistence', function () {
     });
 });
 
-describe('Warehouse persistence', function () {
+describe('Deposito persistence', function () {
     it('persists and retrieves a warehouse', function () {
-        $repo = app(WarehouseRepository::class);
+        $repo = app(DepositoRepository::class);
 
-        $repo->save(new \Supermarket\Domain\Stock\Warehouse('p-1', 200));
+        $repo->save(new \Supermercado\Domain\Stock\Deposito('p-1', 200));
 
         $found = $repo->find('p-1');
 
@@ -45,9 +45,9 @@ describe('Warehouse persistence', function () {
     });
 
     it('saves the updated quantity after a take', function () {
-        $repo = app(WarehouseRepository::class);
+        $repo = app(DepositoRepository::class);
 
-        $warehouse = new \Supermarket\Domain\Stock\Warehouse('p-1', 200);
+        $warehouse = new \Supermercado\Domain\Stock\Deposito('p-1', 200);
         $repo->save($warehouse);
 
         $warehouse->take(50);

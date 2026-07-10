@@ -10,16 +10,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('sales', function (Blueprint $table) {
+        Schema::create('ventas', function (Blueprint $table) {
             $table->string('id')->primary();
             $table->string('cashier_id');
             $table->string('customer_name');
+            $table->string('payment_method');
             $table->string('status');
             $table->string('sold_at'); // ISO-8601 timestamp of the domain createdAt
             $table->timestamps();
         });
 
-        Schema::create('sale_lines', function (Blueprint $table) {
+        Schema::create('lineas_de_venta', function (Blueprint $table) {
             $table->id();
             $table->string('sale_id');
             $table->string('product_id');
@@ -32,7 +33,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('sale_lines');
-        Schema::dropIfExists('sales');
+        Schema::dropIfExists('lineas_de_venta');
+        Schema::dropIfExists('ventas');
     }
 };

@@ -18,7 +18,7 @@ uses(Tests\TestCase::class)->in('Feature');
 |--------------------------------------------------------------------------
 */
 
-function products(): \Supermarket\Domain\Catalog\ProductRepository
+function products(): \Supermercado\Domain\Catalogo\ProductoRepository
 {
-    return app(\Supermarket\Domain\Catalog\ProductRepository::class);
+    return app(\Supermercado\Domain\Catalogo\ProductoRepository::class);
 }

@@ -3,16 +3,18 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Supermarket\Domain\Catalog\ProductRepository;
-use Supermarket\Domain\Catalog\OfferRepository;
-use Supermarket\Infrastructure\Persistence\EloquentProductRepository;
-use Supermarket\Infrastructure\Persistence\EloquentOfferRepository;
-use Supermarket\Domain\Sales\SaleRepository;
-use Supermarket\Infrastructure\Persistence\EloquentSaleRepository;
-use Supermarket\Domain\Stock\ShelfRepository;
-use Supermarket\Domain\Stock\WarehouseRepository;
-use Supermarket\Infrastructure\Persistence\EloquentShelfRepository;
-use Supermarket\Infrastructure\Persistence\EloquentWarehouseRepository;
+use Supermercado\Domain\Stock\MovimientoDeStockRepository;
+use Supermercado\Infrastructure\Persistence\EloquentMovimientoDeStockRepository;
+use Supermercado\Domain\Catalogo\ProductoRepository;
+use Supermercado\Domain\Catalogo\OfertaRepository;
+use Supermercado\Infrastructure\Persistence\EloquentProductoRepository;
+use Supermercado\Infrastructure\Persistence\EloquentOfertaRepository;
+use Supermercado\Domain\Ventas\VentaRepository;
+use Supermercado\Infrastructure\Persistence\EloquentVentaRepository;
+use Supermercado\Domain\Stock\GondolaRepository;
+use Supermercado\Domain\Stock\DepositoRepository;
+use Supermercado\Infrastructure\Persistence\EloquentGondolaRepository;
+use Supermercado\Infrastructure\Persistence\EloquentDepositoRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,11 +23,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(ProductRepository::class, EloquentProductRepository::class);
-        $this->app->bind(OfferRepository::class, EloquentOfferRepository::class);
-        $this->app->bind(SaleRepository::class, EloquentSaleRepository::class);
-        $this->app->bind(ShelfRepository::class, EloquentShelfRepository::class);
-        $this->app->bind(WarehouseRepository::class, EloquentWarehouseRepository::class);
+        $this->app->bind(ProductoRepository::class, EloquentProductoRepository::class);
+        $this->app->bind(OfertaRepository::class, EloquentOfertaRepository::class);
+        $this->app->bind(VentaRepository::class, EloquentVentaRepository::class);
+        $this->app->bind(GondolaRepository::class, EloquentGondolaRepository::class);
+        $this->app->bind(DepositoRepository::class, EloquentDepositoRepository::class);
+        $this->app->bind(MovimientoDeStockRepository::class, EloquentMovimientoDeStockRepository::class);
     }
 
     /**
