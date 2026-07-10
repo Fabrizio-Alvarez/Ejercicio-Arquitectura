@@ -15,7 +15,7 @@ createInertiaApp({
         // El selector de perfiles va sin layout (entrada pre-perfil);
         // el resto se envuelve en el layout compartido.
         if (name !== 'Perfiles/Iniciar') {
-            page.default.layout = (p) => h(AppLayout, {}, () => p);
+            page.default.layout = (h, page) => h(AppLayout, {}, () => page);
         }
 
         return page;
