@@ -108,11 +108,14 @@ CLI del repositor: `php artisan stock:replenish {productId}`
 
 ## Frontend (Vue 3 + Inertia.js)
 
-| Ruta | Página | Qué hace |
-|------|--------|----------|
-| `/stock` | `Stock.vue` | Tabla de stock por producto con flags de góndola/depósito bajo |
-| `/cobrar` | `Cobrar.vue` | Formulario de venta (producto, cantidad, método de pago) → `POST /api/checkout` |
-| `/movimientos` | `Movimientos.vue` | Auditoría de movimientos del depósito (ventas y reposiciones) |
+| Ruta | Perfil | Página | Qué hace |
+|------|--------|--------|----------|
+| `/iniciar` | (selector) | `Perfiles/Iniciar.vue` | Selector de perfil: cajero / depositista / repositor |
+| `/cobrar` | Cajero | `Cobrar.vue` | Registrar venta (producto, cantidad, método de pago) → `POST /api/checkout` |
+| `/movimientos` | Depositista | `Movimientos.vue` | Auditoría de movimientos del depósito |
+| `/stock` | Repositor | `Stock.vue` | Stock por producto con flags de góndola/depósito bajo |
+
+Cada perfil ve solo su vista (sin login): `/iniciar` persiste el perfil en sesión vía el **Facade `Perfil`**, y el middleware `RequierePerfil` gatea las rutas por perfil.
 
 ---
 
@@ -146,7 +149,7 @@ Pirámide de tests:
   Sin Laravel, sin DB.
 - **Feature (persistencia + casos de uso + HTTP + eventos + web)** — `tests/Feature/**`:
   adapters de repositorio contra SQLite real, los casos de uso, la API REST, el **flujo
-  de eventos** (`FlujoDeCompraTest`) y las **páginas Inertia** (`PaginasWebTest`).
+-  de eventos** (`FlujoDeCompraTest`), las **páginas Inertia** (`PaginasWebTest`) y el **gating por perfil** (`PerfilTest`).
 
 ---
 
@@ -169,6 +172,10 @@ Pirámide de tests:
 - **Regla de reposición como decisión pura.** `PoliticaDeReposicion::decide` es función
   pura de (gondola, deposito) → (movimiento, alerta). La capa de aplicación la aplica y
   persiste. Testeada exhaustivamente, incluido el límite exacto de 150.
+- **Selector de perfiles vía Facade.** El perfil actual vive en sesión, expuesto por el
+  Facade `Perfil` (`Perfil::actual()`) — controladores y middleware no tocan la sesión.
+  El enum `Perfil` (puro) define qué ve cada rol; `RequierePerfil` gatea. Sin login, listo
+  para evolucionar a auth real sin tocar los controladores.
 
 ---
 

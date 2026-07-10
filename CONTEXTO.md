@@ -14,7 +14,7 @@ Todo el código de dominio/aplicación está **en español** (clases, namespaces
 
 - Laravel **13** · PHP **8.4** (obligatorio) · Pest · Inertia.js 3 · Vue 3 · Vite 8 · Tailwind 4 · Docker · GitHub Actions.
 - DB: **SQLite** (dev + tests `:memory:`). Postgres declarado para deploy.
-- Auth: Sanctum (instalado; endpoints públicos).
+- Auth: Sanctum (instalado; endpoints públicos). Acceso web por **selector de perfiles** (sin login): cajero / depositista / repositor.
 
 ## Arquitectura (capas, dependencia siempre hacia adentro)
 
@@ -40,15 +40,17 @@ src/Supermercado/
     MovimientoDeStockModel
     Eloquent{Producto,Oferta,Venta,Gondola,Deposito,MovimientoDeStock}Repository
 app/
-  Http/Controllers/Api/   CobroController, CierreDeCajaController, StockController, ReposicionController
-  Http/Controllers/Web/   PaginaWebController (renderiza páginas Inertia: stock/cobrar/movimientos)
-  Http/Middleware/        HandleInertiaRequests
-  Listeners/              DescontarDeGondola, AvisarAlDeposito, Repositor  (auto-discovery)
-  Console/Commands/       ReponerStockCommand (CLI del repositor)
-  Providers/AppServiceProvider  # binds puertos → adapters (cableado hexagonal)
+  Access/                Perfil (enum puro: cajero/depositista/repositor), SesionDePerfil
+  Facades/               Perfil (Facade de acceso al perfil actual)
+  Http/Controllers/Api/  CobroController, CierreDeCajaController, StockController, ReposicionController
+  Http/Controllers/Web/  PaginaWebController (Inertia: stock/cobrar/movimientos + selector /iniciar)
+  Http/Middleware/       HandleInertiaRequests, RequierePerfil (gatea vistas por perfil)
+  Listeners/             DescontarDeGondola, AvisarAlDeposito, Repositor  (auto-discovery)
+  Console/Commands/      ReponerStockCommand (CLI del repositor)
+  Providers/AppServiceProvider  # binds puertos → adapters + 'sesion.de.perfil'
 routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}
-routes/web.php   # /stock, /cobrar, /movimientos (Inertia)
-resources/js/    # app.js (Inertia+Vue), Layouts/AppLayout.vue, Paginas/{Stock,Cobrar,Movimientos}.vue
+routes/web.php   # /iniciar (selector), /salir; grupo gateado 'perfil': /, /cobrar, /stock, /movimientos
+resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol), Paginas/{Stock,Cobrar,Movimientos,Perfiles/Iniciar}.vue
 ```
 
 ## Flujo de eventos (compra → depósito → repositor)
@@ -76,6 +78,13 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 - **AlertaDeStock**: evento cuando góndola o depósito caen bajo su mínimo.
 - **Repositor**: servicio sin identidad que repone la góndola desde el depósito al recibir la alerta.
 
+## Perfiles del frontend (selector, sin login)
+
+- Tres perfiles, cada uno con su vista: **Cajero** → /cobrar, **Depositista** → /movimientos, **Repositor** → /stock.
+- `/iniciar` es el selector; el perfil se persiste en sesión vía el **Facade `Perfil`** (`App\Access\SesionDePerfil`, binding `sesion.de.perfil`), sin login.
+- El middleware `RequierePerfil` (alias `perfil`) gatea: sin perfil → /iniciar; ruta no permitida para el perfil → su home.
+- `HandleInertiaRequests` comparte el perfil a todas las páginas; `AppLayout` pinta nav + indicador conscientes del rol.
+
 ## Los casos de uso del spec (hechos + testeados)
 
 1. Cálculo de precios con ofertas → `Cotizador` (mejor oferta activa, time-windowed).
@@ -93,7 +102,7 @@ docker() { "C:\Program Files\Docker\Docker\resources\bin\docker.exe" "$@"; }
 docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php vendor/bin/pest
 docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php artisan migrate:fresh --seed
 ```
-- **Tests:** `vendor/bin/pest`. Unit (dominio puro) + Feature (persistencia/app/HTTP/eventos/web). 84 tests, verde. CI verde.
+- **Tests:** `vendor/bin/pest`. Unit (dominio puro) + Feature (persistencia/app/HTTP/eventos/web/perfiles). 94 tests, verde. CI verde.
 - **Frontend:** `npm install && npm run build` (nativo; Node 24). Dev: `npm run dev` (Vite) + `php artisan serve`.
 - **Deploy:** `Dockerfile` (single container, `php artisan migrate --seed` + `php artisan serve`, lee `PORT`). Seed demo en `database/seeders/DatabaseSeeder.php`.
 
@@ -109,5 +118,5 @@ docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php art
 
 ## Estado
 
-- ✅ Dominio + Infrastructure + Application + Presentation (API + Web/Inertia) + Eventos de dominio + Vue + Dockerfile + CI + seeder + README. **84 tests verde. CI verde.**
-- 🔜 Futuro: auth real en endpoints, SSR de Inertia, portear a Postgres, más tests de edge cases.
+- ✅ Dominio + Infrastructure + Application + Presentation (API + Web/Inertia) + Eventos + **selector de perfiles** + Vue + Dockerfile + CI + seeder + README. **94 tests verde. CI verde.**
+- 🔜 Futuro: login + roles reales sobre los perfiles actuales, SSR de Inertia, portear a Postgres, más tests de edge cases.
