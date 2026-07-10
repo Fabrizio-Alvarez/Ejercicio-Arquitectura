@@ -45,10 +45,11 @@ final class PaginaWebController extends Controller
         ]);
     }
 
-    public function movimientos(ListarMovimientos $listar): Response
+    public function movimientos(ListarMovimientos $listar, ListarStock $stock): Response
     {
         return Inertia::render('Movimientos', [
             'movimientos' => $listar->execute(),
+            'stockDeposito' => $stock->execute(),
         ]);
     }
     public function iniciar(): Response

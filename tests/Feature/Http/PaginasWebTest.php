@@ -18,5 +18,6 @@ it('renderiza la página de cobrar vía Inertia (cajero)', function () {
 });
 
 it('renderiza la página de movimientos vía Inertia (depositista)', function () {
+    $this->seed();
     $this->withSession(['perfil' => 'depositista'])->get('/movimientos')->assertOk();
 });
