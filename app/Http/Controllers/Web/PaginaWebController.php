@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Facades\Perfil;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Supermercado\Application\Stock\ListarMovimientos;
@@ -48,5 +50,35 @@ final class PaginaWebController extends Controller
         return Inertia::render('Movimientos', [
             'movimientos' => $listar->execute(),
         ]);
+    }
+    public function iniciar(): Response
+    {
+        return Inertia::render('Perfiles/Iniciar', [
+            'perfiles' => array_map(
+                static fn ($p) => [
+                    'value' => $p->value,
+                    'etiqueta' => $p->etiqueta(),
+                    'descripcion' => $p->descripcion(),
+                ],
+                Perfil::todos(),
+            ),
+        ]);
+    }
+
+    public function establecerPerfil(Request $request)
+    {
+        $validos = implode(',', array_map(static fn ($p) => $p->value, Perfil::todos()));
+        $data = $request->validate(['perfil' => "required|in:{$validos}"]);
+
+        Perfil::establecerPorValor($data['perfil']);
+
+        return redirect()->route(Perfil::actual()->paginas()[0]['ruta']);
+    }
+
+    public function salir()
+    {
+        Perfil::limpiar();
+
+        return redirect()->route('iniciar');
     }
 }

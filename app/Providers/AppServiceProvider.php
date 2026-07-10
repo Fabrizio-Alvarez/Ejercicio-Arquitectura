@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Access\SesionDePerfil;
 use Illuminate\Support\ServiceProvider;
 use Supermercado\Domain\Stock\MovimientoDeStockRepository;
 use Supermercado\Infrastructure\Persistence\EloquentMovimientoDeStockRepository;
@@ -29,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GondolaRepository::class, EloquentGondolaRepository::class);
         $this->app->bind(DepositoRepository::class, EloquentDepositoRepository::class);
         $this->app->bind(MovimientoDeStockRepository::class, EloquentMovimientoDeStockRepository::class);
+        $this->app->singleton('sesion.de.perfil', fn ($app) => new SesionDePerfil($app->make('session.store')));
     }
 
     /**

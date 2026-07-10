@@ -12,8 +12,11 @@ createInertiaApp({
             throw new Error(`Página Inertia no encontrada: ${name}`);
         }
 
-        // Envuelve cada página en el layout compartido.
-        page.default.layout = (p) => h(AppLayout, {}, () => p);
+        // El selector de perfiles va sin layout (entrada pre-perfil);
+        // el resto se envuelve en el layout compartido.
+        if (name !== 'Perfiles/Iniciar') {
+            page.default.layout = (p) => h(AppLayout, {}, () => p);
+        }
 
         return page;
     },

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Facades\Perfil;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -18,8 +19,14 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $perfil = Perfil::tiene() ? Perfil::actual() : null;
+
         return array_merge(parent::share($request), [
-            //
+            'perfil' => $perfil === null ? null : [
+                'value' => $perfil->value,
+                'etiqueta' => $perfil->etiqueta(),
+                'paginas' => $perfil->paginas(),
+            ],
         ]);
     }
 }
