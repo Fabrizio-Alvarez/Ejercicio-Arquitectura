@@ -11,7 +11,7 @@ describe('Gondola (góndola)', function () {
     });
 
     it('rejects a negative initial quantity', function () {
-        expect(fn () => new Gondola('p-1', -1))->toThrow(\InvalidArgumentException::class);
+        expect(fn () => new Gondola('p-1', -1))->toThrow(InvalidArgumentException::class);
     });
 
     it('increases quantity on restock', function () {
@@ -25,4 +25,12 @@ describe('Gondola (góndola)', function () {
         expect((new Gondola('p-1', 29))->isLow())->toBeTrue()
             ->and((new Gondola('p-1', 30))->isLow())->toBeFalse();
     });
+    it('knows how many units are missing to reach a target level', function () {
+        $shelf = new Gondola('p-1', 20);
+
+        expect($shelf->gapTo(50))->toBe(30)    // 50 - 20
+            ->and($shelf->gapTo(20))->toBe(0)  // already at target
+            ->and($shelf->gapTo(10))->toBe(0); // never negative
+    });
+
 });

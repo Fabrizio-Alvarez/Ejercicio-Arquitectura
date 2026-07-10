@@ -24,7 +24,7 @@ final class Dinero
      */
     public static function fromDecimal(string $decimal, string $currency): self
     {
-        if (!preg_match('/^-?\d+(\.\d{1,2})?$/', $decimal)) {
+        if (! preg_match('/^-?\d+(\.\d{1,2})?$/', $decimal)) {
             throw new \InvalidArgumentException("Invalid decimal amount: {$decimal}");
         }
 
@@ -65,6 +65,23 @@ final class Dinero
     }
 
     /**
+     * Suma una lista no vacía de Dinero (misma moneda). El primero es
+     * obligatorio: sumar cero elementos no tiene sentido de negocio y
+     * obliga al llamador a decidir el caso vacío. Elimina el fold manual
+     * repetido en Venta::total() y CierreDeCaja::total().
+     */
+    public static function sum(self $first, self ...$rest): self
+    {
+        $accumulator = $first;
+
+        foreach ($rest as $dinero) {
+            $accumulator = $accumulator->add($dinero);
+        }
+
+        return $accumulator;
+    }
+
+    /**
      * Apply a percentage OFF (e.g. 25 = 25% discount) and return the
      * resulting Dinero, rounded half-up on the cent.
      */
@@ -85,7 +102,7 @@ final class Dinero
     {
         $sign = $this->amount < 0 ? '-' : '';
 
-        return $sign . number_format(abs($this->amount) / 100, 2, '.', '') . ' ' . $this->currency;
+        return $sign.number_format(abs($this->amount) / 100, 2, '.', '').' '.$this->currency;
     }
 
     private function ensureSameCurrency(self $other): void

@@ -9,6 +9,9 @@ namespace Supermercado\Domain\Stock;
  */
 final class Gondola
 {
+    /** Umbral a partir del cual la góndola se considera con stock bajo. */
+    public const UMBRAL_BAJO = 30;
+
     public function __construct(
         private readonly string $productId,
         private int $quantity,
@@ -30,13 +33,24 @@ final class Gondola
 
     public function isLow(): bool
     {
-        return $this->quantity < PoliticaDeReposicion::LOW_SHELF_THRESHOLD;
+        return $this->quantity < self::UMBRAL_BAJO;
+    }
+
+    /**
+     * Unidades que faltan en la góndola para alcanzar un nivel objetivo.
+     * Nunca negativo: si ya está en o por encima del objetivo, no hace falta
+     * reponer nada. Es la pregunta que la política de reposición le hace a la
+     * góndola en lugar de calcularlo afuera ("Tell, Don't Ask").
+     */
+    public function gapTo(int $target): int
+    {
+        return max(0, $target - $this->quantity);
     }
 
     public function restock(int $amount): void
     {
         if ($amount < 0) {
-            throw new \InvalidArgumentException("Restock amount cannot be negative.");
+            throw new \InvalidArgumentException('Restock amount cannot be negative.');
         }
 
         $this->quantity += $amount;

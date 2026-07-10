@@ -29,15 +29,9 @@ final class CierreDeCaja
         $close = new self($cashierId, $day);
 
         foreach ($sales as $sale) {
-            if ($sale->cashierId() !== $cashierId) {
-                continue;
-            }
-
-            if ($sale->status() !== EstadoDeVenta::Confirmada) {
-                continue;
-            }
-
-            if (! self::sameDay($sale->createdAt(), $day)) {
+            // El agregado Venta expone sus propias reglas de pertenencia; el
+            // cierre le pregunta, no le inspecciona el estado interno.
+            if (! $sale->isForCashier($cashierId) || ! $sale->isConfirmed() || ! $sale->isOnDay($day)) {
                 continue;
             }
 
@@ -79,17 +73,6 @@ final class CierreDeCaja
             throw new \DomainException('Cannot total an empty cash close.');
         }
 
-        $total = $this->rows[0]->amount();
-
-        for ($i = 1, $count = count($this->rows); $i < $count; $i++) {
-            $total = $total->add($this->rows[$i]->amount());
-        }
-
-        return $total;
-    }
-
-    private static function sameDay(\DateTimeImmutable $a, \DateTimeImmutable $b): bool
-    {
-        return $a->format('Y-m-d') === $b->format('Y-m-d');
+        return Dinero::sum(...array_map(fn (ResumenDeVenta $row) => $row->amount(), $this->rows));
     }
 }

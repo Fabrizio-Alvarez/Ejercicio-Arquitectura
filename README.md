@@ -46,10 +46,13 @@ flowchart TD
   ADP --> ELO["Modelos Eloquent + migraciones"]
 ```
 
-- **Dominio** no sabe nada de Laravel, la DB ni HTTP. Mantiene los invariantes: un
-  `Dinero` no mezcla monedas; una `Venta` no se confirma vacía ni se edita tras
-  confirmarse; la regla de reposición (<30 → llenar a 50, alerta si depósito <150)
-  vive en un servicio puro.
+- **Dominio** no sabe nada de Laravel, la DB ni HTTP. Sigue un **modelo rico**: la lógica vive en
+  las entidades, no en servicios anémicos. Un `Dinero` no mezcla monedas y sabe sumarse
+  (`Dinero::sum`); una `Venta` no se confirma vacía ni se edita tras confirmarse, y expone sus reglas
+  (`isConfirmed`, `isForCashier`, `isOnDay`); `Gondola`/`Deposito` son dueñas de su umbral de stock
+  bajo y de sus operaciones (`gapTo`, `maxAvailableFor`, `wouldBeLowAfter`). La regla de reposición
+  (<30 → llenar a 50, alerta si depósito <150) es un orquestador delgado (`PoliticaDeReposicion`)
+  que **le pregunta** a esas entidades (Tell, Don't Ask).
 - **Aplicación** orquesta los casos de uso contra **puertos de repositorio**
   (interfaces definidas en el dominio) y **despacha los eventos de dominio**.
 - **Infraestructura** provee los adapters Eloquent que traducen filas ↔ objetos de dominio.

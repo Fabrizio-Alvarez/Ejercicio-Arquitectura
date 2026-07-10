@@ -34,7 +34,7 @@ final class Venta
         private readonly string $id,
         private readonly string $cashierId,
         private readonly string $customerName,
-        private readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+        private readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable,
         private readonly MetodoDePago $metodoDePago = MetodoDePago::Efectivo,
     ) {
         $this->status = EstadoDeVenta::Pendiente;
@@ -45,7 +45,7 @@ final class Venta
      * mutación y sus invariantes: se usa solo para cargar datos ya válidos y
      * de confianza. No graba eventos (estos ya ocurrieron en el pasado).
      *
-     * @param LineaDeVenta[] $lines
+     * @param  LineaDeVenta[]  $lines
      */
     public static function reconstitute(
         string $id,
@@ -96,6 +96,33 @@ final class Venta
         return $this->status;
     }
 
+    public function isPending(): bool
+    {
+        return $this->status === EstadoDeVenta::Pendiente;
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->status === EstadoDeVenta::Confirmada;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === EstadoDeVenta::Cancelada;
+    }
+
+    /** ¿Pertenece esta venta a este cajero? Regla de negocio del cierre de caja. */
+    public function isForCashier(string $cashierId): bool
+    {
+        return $this->cashierId === $cashierId;
+    }
+
+    /** ¿Ocurrió esta venta en el día calendario dado? Compara Y-m-d. */
+    public function isOnDay(\DateTimeImmutable $day): bool
+    {
+        return $this->createdAt->format('Y-m-d') === $day->format('Y-m-d');
+    }
+
     /** @return LineaDeVenta[] */
     public function lines(): array
     {
@@ -125,13 +152,19 @@ final class Venta
             throw new \DomainException('Cannot compute the total of a sale with no lines.');
         }
 
-        $total = $this->lines[0]->total();
+        return Dinero::sum(...array_map(fn (LineaDeVenta $line) => $line->total(), $this->lines));
+    }
 
-        for ($i = 1, $count = count($this->lines); $i < $count; $i++) {
-            $total = $total->add($this->lines[$i]->total());
-        }
+    /** Cantidad de líneas distintas en la venta. */
+    public function lineCount(): int
+    {
+        return count($this->lines);
+    }
 
-        return $total;
+    /** Cantidad total de unidades vendidas (suma de las cantidades de las líneas). */
+    public function itemCount(): int
+    {
+        return array_sum(array_map(fn (LineaDeVenta $line) => $line->quantity(), $this->lines));
     }
 
     public function confirm(): void

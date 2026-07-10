@@ -6,6 +6,7 @@ namespace Supermercado\Application\Ventas;
 
 use Illuminate\Support\Facades\Event;
 use Supermercado\Domain\Catalogo\OfertaRepository;
+use Supermercado\Domain\Catalogo\Ofertas;
 use Supermercado\Domain\Catalogo\ProductoRepository;
 use Supermercado\Domain\Ventas\Cotizador;
 use Supermercado\Domain\Ventas\Venta;
@@ -42,7 +43,7 @@ final class CobrarProductos
                 throw ProductoNoEncontradoException::forId($item->productId);
             }
 
-            $offers = $this->offers->findByProduct($item->productId);
+            $offers = new Ofertas($this->offers->findByProduct($item->productId));
 
             $sale->addLine($this->pricer->price($product, $item->quantity, $offers, $now));
         }

@@ -9,6 +9,9 @@ namespace Supermercado\Domain\Stock;
  */
 final class Deposito
 {
+    /** Umbral a partir del cual el depósito se considera con stock bajo. */
+    public const UMBRAL_BAJO = 150;
+
     public function __construct(
         private readonly string $productId,
         private int $quantity,
@@ -30,7 +33,34 @@ final class Deposito
 
     public function isLow(): bool
     {
-        return $this->quantity < PoliticaDeReposicion::LOW_WAREHOUSE_THRESHOLD;
+        return $this->quantity < self::UMBRAL_BAJO;
+    }
+
+    /**
+     * Cuántas unidades como máximo puede entregar el depósito ante un pedido,
+     * sin exceder el stock disponible. Nunca negativo.
+     */
+    public function maxAvailableFor(int $requested): int
+    {
+        if ($requested < 0) {
+            throw new \InvalidArgumentException('El pedido al depósito no puede ser negativo.');
+        }
+
+        return min($requested, $this->quantity);
+    }
+
+    /**
+     * Proyección SIN mutar: quedaría el depósito por debajo de su umbral tras
+     * extraer estas unidades. La política lo usa para decidir la alerta antes
+     * de tocar el estado.
+     */
+    public function wouldBeLowAfter(int $toTake): bool
+    {
+        if ($toTake < 0) {
+            throw new \InvalidArgumentException('La cantidad a extraer no puede ser negativa.');
+        }
+
+        return ($this->quantity - $toTake) < self::UMBRAL_BAJO;
     }
 
     public function take(int $amount): void

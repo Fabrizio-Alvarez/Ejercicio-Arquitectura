@@ -21,15 +21,17 @@ Todo el código de dominio/aplicación está **en español** (clases, namespaces
 ```
 src/Supermercado/
   Domain/            # PURO PHP, sin Laravel. Tests unitarios sin DB.
-    Catalogo/ Producto, Oferta, ProductoRepository (port), OfertaRepository (port)
-    Ventas/   Venta (aggregate + reconstitute), LineaDeVenta, EstadoDeVenta,
-              Cotizador (domain service), CierreDeCaja, ResumenDeVenta, VentaRepository,
-              MetodoDePago (enum), CompraRealizada (evento de dominio)
-    Stock/    Gondola, Deposito, PoliticaDeReposicion, DecisionDeReposicion,
+    Catalogo/ Producto, Oferta, Ofertas (colección first-class), ProductoRepository (port), OfertaRepository (port)
+    Ventas/   Venta (aggregate: state machine + predicados isConfirmed/isForCashier/isOnDay +
+              counts lineCount/itemCount), LineaDeVenta, EstadoDeVenta,
+              Cotizador (servicio delgado, delega en Ofertas), CierreDeCaja, ResumenDeVenta,
+              VentaRepository, MetodoDePago (enum), CompraRealizada (evento de dominio)
+    Stock/    Gondola (UMBRAL_BAJO + gapTo), Deposito (UMBRAL_BAJO + maxAvailableFor/wouldBeLowAfter),
+              PoliticaDeReposicion (orquestador delgado, TARGET_LEVEL), DecisionDeReposicion (+ none),
               AlertaDeStock (valor + evento), UbicacionDeStock (enum), TipoDeMovimiento (enum),
               MovimientoDeStock (auditoría), MovimientoDeStockRepository (port),
               GondolaRepository (port), DepositoRepository (port)
-    Comun/    Dinero (VO, integer cents), MonedaDistintaException
+    Comun/    Dinero (VO, integer cents, +sum), MonedaDistintaException
   Application/       # Casos de uso (orquestan dominio + puertos)
     Ventas/   CobrarProductos (+ CobrarRequest, ItemRequest, ProductoNoEncontradoException),
               ObtenerCierreDeCaja
@@ -52,6 +54,19 @@ routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}
 routes/web.php   # /iniciar (selector), /salir; grupo gateado 'perfil': /, /cobrar, /stock, /movimientos
 resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol), Paginas/{Stock,Cobrar,Movimientos,Perfiles/Iniciar}.vue
 ```
+
+## Modelo de dominio rico (Tell, Don't Ask)
+
+La lógica vive en las **entidades**, no en servicios anémicos: la capa de aplicación *les pregunta*
+a los objetos en lugar de inspeccionarlos y recalcular.
+
+- `Gondola`/`Deposito` son dueñas de su `UMBRAL_BAJO` y exponen sus operaciones (`gapTo`,
+  `maxAvailableFor`, `wouldBeLowAfter`). `PoliticaDeReposicion::decide()` es un orquestador delgado
+  que delega en ellas; sólo retiene `TARGET_LEVEL` (decisión de política, no de la ubicación).
+- `Venta` expone sus reglas (`isConfirmed`, `isForCashier`, `isOnDay`) y contadores (`lineCount`,
+  `itemCount`); `CierreDeCaja` los usa en vez de filtrar a mano.
+- `Ofertas` es una colección first-class (`bestActiveFor`); `Cotizador` queda delgado.
+- `Dinero::sum()` elimina el fold manual repetido en los totales.
 
 ## Flujo de eventos (compra → depósito → repositor)
 

@@ -4,48 +4,28 @@ declare(strict_types=1);
 
 namespace Supermercado\Domain\Ventas;
 
-use Supermercado\Domain\Catalogo\Oferta;
+use Supermercado\Domain\Catalogo\Ofertas;
 use Supermercado\Domain\Catalogo\Producto;
 
 /**
- * Domain service: prices a product for a sale, applying the BEST active
- * offer that covers it (or no discount if none is active).
+ * Domain service: cotiza un producto para una venta aplicando la mejor oferta
+ * activa que lo cubre (o sin descuento si ninguna aplica).
+ *
+ * Es un servicio de dominio —no una entidad— porque la regla cruza dos
+ * agregados: Catálogo (Producto + Ofertas) y Ventas (LineaDeVenta). La selección
+ * de la mejor oferta activa vive en la colección Ofertas; este servicio sólo
+ * orquesta "cotizar producto -> línea de venta".
  */
 final class Cotizador
 {
-    /**
-     * @param Oferta[] $offers
-     */
-    public function price(Producto $product, int $quantity, array $offers, \DateTimeImmutable $at): LineaDeVenta
+    public function price(Producto $product, int $quantity, Ofertas $offers, \DateTimeImmutable $at): LineaDeVenta
     {
-        $best = $this->bestActiveOfferFor($product->id(), $offers, $at);
+        $best = $offers->bestActiveFor($product->id(), $at);
 
         $unitPrice = $best !== null
             ? $best->applyTo($product->price())
             : $product->price();
 
         return new LineaDeVenta($product->id(), $product->name(), $quantity, $unitPrice);
-    }
-
-    /**
-     * @param Oferta[] $offers
-     */
-    private function bestActiveOfferFor(string $productId, array $offers, \DateTimeImmutable $at): ?Oferta
-    {
-        $best = null;
-
-        foreach ($offers as $offer) {
-            if (! $offer instanceof Oferta) {
-                continue;
-            }
-
-            if ($offer->covers($productId) && $offer->isActive($at)) {
-                if ($best === null || $offer->percent() > $best->percent()) {
-                    $best = $offer;
-                }
-            }
-        }
-
-        return $best;
     }
 }

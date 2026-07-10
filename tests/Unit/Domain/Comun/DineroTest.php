@@ -3,8 +3,8 @@
 // Pure domain test — runs WITHOUT booting Laravel.
 // This file is the headline of the project: the domain is tested in isolation.
 
-use Supermercado\Domain\Comun\MonedaDistintaException;
 use Supermercado\Domain\Comun\Dinero;
+use Supermercado\Domain\Comun\MonedaDistintaException;
 
 describe('Dinero value object', function () {
     it('holds an amount in integer cents and a currency', function () {
@@ -66,4 +66,16 @@ describe('Dinero value object', function () {
     it('formats back to a decimal string', function () {
         expect((string) (new Dinero(1099, 'ARS')))->toBe('10.99 ARS');
     });
+    it('sums a non-empty list of same-currency Dinero into one amount', function () {
+        $sum = Dinero::sum(new Dinero(100, 'ARS'), new Dinero(250, 'ARS'), new Dinero(50, 'ARS'));
+
+        expect($sum)->toEqual(new Dinero(400, 'ARS'))
+            ->and($sum->currency())->toBe('ARS');
+    });
+
+    it('sum enforces the same currency across every term', function () {
+        expect(fn () => Dinero::sum(new Dinero(100, 'ARS'), new Dinero(100, 'USD')))
+            ->toThrow(MonedaDistintaException::class);
+    });
+
 });

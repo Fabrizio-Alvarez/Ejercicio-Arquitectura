@@ -17,22 +17,29 @@ namespace Supermercado\Domain\Stock;
  */
 final class PoliticaDeReposicion
 {
-    public const LOW_SHELF_THRESHOLD = 30;
+    /**
+     * Nivel objetivo al que se repone la góndola. Es decisión de POLÍTICA, no
+     * de la ubicación: "cuando la góndola está baja, llénala hasta 50". Los
+     * umbrales de "baja" (30 góndola / 150 depósito) viven en cada entidad.
+     */
     public const TARGET_LEVEL = 50;
-    public const LOW_WAREHOUSE_THRESHOLD = 150;
 
     public function decide(Gondola $shelf, Deposito $warehouse): DecisionDeReposicion
     {
-        if ($shelf->quantity() >= self::LOW_SHELF_THRESHOLD) {
-            // Gondola is healthy: nothing to move, no alert.
-            return new DecisionDeReposicion($shelf->productId(), 0, false);
+        // Le preguntamos a la góndola si necesita reposición (ella conoce su
+        // umbral); no inspeccionamos su cantidad desde afuera.
+        if (! $shelf->isLow()) {
+            return DecisionDeReposicion::none($shelf->productId());
         }
 
-        $needed = self::TARGET_LEVEL - $shelf->quantity(); // always > 0 since shelf < 30 < 50
-        $toMove = min($needed, $warehouse->quantity()); // never move more than the warehouse holds
-        $projectedWarehouse = $warehouse->quantity() - $toMove;
-        $emitsAlert = $projectedWarehouse < self::LOW_WAREHOUSE_THRESHOLD;
+        // Cuánto falta para llegar al objetivo, acotado a lo que el depósito
+        // puede entregar; y si eso lo dejaría bajo, emitimos alerta.
+        $toMove = $warehouse->maxAvailableFor($shelf->gapTo(self::TARGET_LEVEL));
 
-        return new DecisionDeReposicion($shelf->productId(), $toMove, $emitsAlert);
+        return new DecisionDeReposicion(
+            $shelf->productId(),
+            $toMove,
+            $warehouse->wouldBeLowAfter($toMove),
+        );
     }
 }

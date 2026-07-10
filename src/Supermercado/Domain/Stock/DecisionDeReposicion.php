@@ -17,6 +17,12 @@ final class DecisionDeReposicion
         private readonly bool $emitsAlert,
     ) {}
 
+    /** Una decisión que no mueve stock ni emite alerta (góndola sana). */
+    public static function none(string $productId): self
+    {
+        return new self($productId, 0, false);
+    }
+
     public function productId(): string
     {
         return $this->productId;
