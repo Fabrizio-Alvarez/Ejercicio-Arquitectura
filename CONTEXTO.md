@@ -1,4 +1,4 @@
-# 📋 CONTEXTO.md — Supermarket Stock (Laravel + DDD)
+# 📋 CONTEXTO.md — Supermercado Stock (Laravel + DDD + Eventos + Vue)
 
 **Para retomar este proyecto en otra sesión.** Self-contained: con este archivo + el repo, cualquier sesión puede continuar.
 
@@ -6,73 +6,108 @@
 
 ## Qué es
 
-Backend de gestión de stock de supermercado en **Laravel 13 + PHP 8.4** con **arquitectura DDD/hexagonal** estricta. Requerimientos de un spec real (`docs/specs/`). El **headline**: el dominio es PHP puro, testeado con Pest **sin Laravel ni DB** — prueba que la frontera hexagonal es real.
+Backend de gestión de stock de supermercado en **Laravel 13 + PHP 8.4** con **arquitectura DDD/hexagonal estricta**, **eventos de dominio** (flujo de compra → depósito → repositor) y un **frontend Vue 3 + Inertia.js**. El dominio es PHP puro, testeado con Pest **sin Laravel ni DB** — prueba que la frontera hexagonal es real.
+
+Todo el código de dominio/aplicación está **en español** (clases, namespaces, tablas); se conservan los términos propios de buenas prácticas (`Repository`, `Controller`, `Model`, `Middleware`, `Event` vía `Event::dispatch`).
 
 ## Stack y versiones
 
-- Laravel **13** · PHP **8.4** (obligatorio: symfony 8.1 requiere >=8.4) · Pest · Playwright (declarado) · GitHub Actions · Docker.
+- Laravel **13** · PHP **8.4** (obligatorio) · Pest · Inertia.js 3 · Vue 3 · Vite 8 · Tailwind 4 · Docker · GitHub Actions.
 - DB: **SQLite** (dev + tests `:memory:`). Postgres declarado para deploy.
-- Auth: Sanctum (instalado; endpoints actualmente públicos — auth opcional per spec).
+- Auth: Sanctum (instalado; endpoints públicos).
 
 ## Arquitectura (capas, dependencia siempre hacia adentro)
 
 ```
-src/Supermarket/
-  Domain/            # PURO PHP, sin Laravel. 48 unit tests, sin DB.
-    Catalog/   Product, Offer, ProductRepository (port), OfferRepository (port, read-only)
-    Sales/     Sale (aggregate + reconstitute), SaleLine, SaleStatus (enum),
-               Pricer (domain service), CashClose, SaleSummary, SaleRepository (port)
-    Stock/     Shelf, Warehouse, ReplenishmentPolicy, ReplenishmentResult, StockAlert,
-               ShelfRepository (port), WarehouseRepository (port)
-    Shared/    Money (VO, integer cents), CurrencyMismatchException
+src/Supermercado/
+  Domain/            # PURO PHP, sin Laravel. Tests unitarios sin DB.
+    Catalogo/ Producto, Oferta, ProductoRepository (port), OfertaRepository (port)
+    Ventas/   Venta (aggregate + reconstitute), LineaDeVenta, EstadoDeVenta,
+              Cotizador (domain service), CierreDeCaja, ResumenDeVenta, VentaRepository,
+              MetodoDePago (enum), CompraRealizada (evento de dominio)
+    Stock/    Gondola, Deposito, PoliticaDeReposicion, DecisionDeReposicion,
+              AlertaDeStock (valor + evento), UbicacionDeStock (enum), TipoDeMovimiento (enum),
+              MovimientoDeStock (auditoría), MovimientoDeStockRepository (port),
+              GondolaRepository (port), DepositoRepository (port)
+    Comun/    Dinero (VO, integer cents), MonedaDistintaException
   Application/       # Casos de uso (orquestan dominio + puertos)
-    Sales/     CobrarProductos (+ CobrarRequest, ItemRequest, ProductNotFoundException),
-               ObtenerCierreDeCaja
-    Stock/     ListarStock (+ StockView), RegistrarReposicion (+ ReposicionOutcome)
+    Ventas/   CobrarProductos (+ CobrarRequest, ItemRequest, ProductoNoEncontradoException),
+              ObtenerCierreDeCaja
+    Stock/    ListarStock (+ VistaDeStock), RegistrarReposicion (+ ResultadoDeReposicion),
+              ListarMovimientos (+ MovimientoView)
   Infrastructure/Persistence/   # Adapters Eloquent de los puertos del dominio
-    ProductModel, SaleModel, SaleLineModel, ShelfModel, WarehouseModel, OfferModel
-    Eloquent{Product,Sale,Offer,Shelf,Warehouse}Repository
+    ProductoModel, VentaModel, LineaDeVentaModel, GondolaModel, DepositoModel, OfertaModel,
+    MovimientoDeStockModel
+    Eloquent{Producto,Oferta,Venta,Gondola,Deposito,MovimientoDeStock}Repository
 app/
-  Http/Controllers/Api/   Checkout, CashClose, Stock, Replenishment (single-action __invoke)
-  Console/Commands/       ReplenishStockCommand (CLI del repositor)
-  Providers/AppServiceProvider  # binds puertos → adapters (acá se cablea el hexagonal)
-routes/api.php            # /checkout, /cash-close, /stock, /replenish/{id}
+  Http/Controllers/Api/   CobroController, CierreDeCajaController, StockController, ReposicionController
+  Http/Controllers/Web/   PaginaWebController (renderiza páginas Inertia: stock/cobrar/movimientos)
+  Http/Middleware/        HandleInertiaRequests
+  Listeners/              DescontarDeGondola, AvisarAlDeposito, Repositor  (auto-discovery)
+  Console/Commands/       ReponerStockCommand (CLI del repositor)
+  Providers/AppServiceProvider  # binds puertos → adapters (cableado hexagonal)
+routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}
+routes/web.php   # /stock, /cobrar, /movimientos (Inertia)
+resources/js/    # app.js (Inertia+Vue), Layouts/AppLayout.vue, Paginas/{Stock,Cobrar,Movimientos}.vue
 ```
 
-## Los 6 casos de uso del spec (todos hechos + testeados)
+## Flujo de eventos (compra → depósito → repositor)
 
-1. Cálculo de precios con ofertas → `Pricer` (mejor oferta activa, time-windowed).
-2. Registro de ventas → `Sale` aggregate (state machine, currency invariant, freeze de precio).
-3. Cierre de caja → `CashClose::forCashierOn` (filtra confirmadas por cajera/día).
+```
+POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
+                                   ↓ Event::dispatch (tras persistir)
+                ┌──────────────────┴──────────────────┐
+        DescontarDeGondola                     AvisarAlDeposito
+        descuenta la góndola (sale el          registra MovimientoDeStock
+        producto vendido)                      (auditoría del depósito: "el
+                │                              depósito avisa a su repositorio")
+                │ si gondola < 30
+                ▼
+        AlertaDeStock(gondola)
+                │
+                ▼
+        Repositor (servicio, sin identidad): repone desde el depósito
+        (PoliticaDeReposicion: <30 → llenar a 50; depósito <150 → alerta)
+```
+
+- La **Venta** es un aggregate: registra líneas, total, **método de pago** y estado; al confirmarse graba el evento.
+- **DescontarDeGondola**: descuenta el stock de exhibición (de donde sale el producto).
+- **AvisarAlDeposito**: el depósito deja huella del movimiento (no descuenta backstock en la venta).
+- **AlertaDeStock**: evento cuando góndola o depósito caen bajo su mínimo.
+- **Repositor**: servicio sin identidad que repone la góndola desde el depósito al recibir la alerta.
+
+## Los casos de uso del spec (hechos + testeados)
+
+1. Cálculo de precios con ofertas → `Cotizador` (mejor oferta activa, time-windowed).
+2. Registro de ventas → `Venta` aggregate (state machine, currency invariant, freeze de precio, **método de pago**).
+3. Cierre de caja → `CierreDeCaja::forCashierOn`.
 4. Listado de stock → `ListarStock`.
-5. Reposición → `RegistrarReposicion` + `ReplenishmentPolicy` (<30 → 50, capped por warehouse).
-6. Alerta de stock → `StockAlert` cuando warehouse proyectado < 150.
+5. Reposición → `RegistrarReposicion` + `PoliticaDeReposicion` (<30 → 50, capped por depósito).
+6. Alerta de stock → `AlertaDeStock` (al reposicionar, depósito <150; y ahora también al vender, góndola <30).
 
 ## Cómo correr / testear / deployar
 
-**No hay PHP/composer nativos en Windows.** Se desarrolla via Docker con la imagen `composer:latest`:
+**No hay PHP/composer nativos en Windows.** Se desarrolla via Docker:
 ```bash
 docker() { "C:\Program Files\Docker\Docker\resources\bin\docker.exe" "$@"; }
-mkdir -p .docker-tmp && printf '{}\n' > .docker-tmp/config.json   # bypass credential helper
-export DOCKER_CONFIG="$PWD/.docker-tmp"
-docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php vendor/bin/pest   # tests
-docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php artisan migrate:fresh --seed   # seed demo
+docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php vendor/bin/pest
+docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php artisan migrate:fresh --seed
 ```
-- **Tests:** `vendor/bin/pest`. Unit (dominio puro, ~0s) + Feature (persistencia/app/HTTP, con RefreshDatabase + sqlite `:memory:`). ~77 tests, todos verde. CI verde en GitHub.
-- **Deploy:** `Dockerfile` (single container, `php artisan migrate --seed` + `php artisan serve`, lee `PORT`). Railway: ver sección Deploy del README. Seed demo en `database/seeders/DatabaseSeeder.php`.
+- **Tests:** `vendor/bin/pest`. Unit (dominio puro) + Feature (persistencia/app/HTTP/eventos/web). 84 tests, verde. CI verde.
+- **Frontend:** `npm install && npm run build` (nativo; Node 24). Dev: `npm run dev` (Vite) + `php artisan serve`.
+- **Deploy:** `Dockerfile` (single container, `php artisan migrate --seed` + `php artisan serve`, lee `PORT`). Seed demo en `database/seeders/DatabaseSeeder.php`.
 
-## ⚠️ Gotchas (para no tropezar al retomar)
+## ⚠️ Gotchas
 
-- **Docker Desktop + mount a FS Windows = LENTO** (~30-90s por op). Paciencia o instalar PHP nativo.
-- **PHP 8.4 obligatorio.** El lock se generó con `composer:latest` (PHP 8.4). No bajar a 8.3.
-- **CI sin `.env`** → `phpunit.xml` setea `APP_KEY` (sin eso, `MissingAppKeyException` en feature tests).
-- **`optimize-autoloader: false`** en composer.json — con `true`, el `dump-autoload` era lentísimo en el mount.
-- **PSR-4:** `"Supermarket\\": "src/Supermarket/"` (el prefijo se descarta → la clase `Supermarket\Domain\X` vive en `src/Supermarket/Domain/X.php`).
-- **`tests/Pest.php`** con `uses(Tests\TestCase::class)->in('Feature');` es **obligatorio** para que los feature tests booteen el app y los bindings del AppServiceProvider resuelvan.
-- **`.docker-tmp/`** está gitignored (es solo el bypass local del credential helper).
+- **Docker Desktop + mount a FS Windows = MUY LENTO** (cold start ~60-90s; un test feature puede tardar 30-200s). Paciencia.
+- **PHP 8.4 obligatorio.** No bajar a 8.3.
+- **CI sin `.env`** → `phpunit.xml` setea `APP_KEY` (sino, `MissingAppKeyException` en feature tests).
+- **PSR-4:** `"Supermercado\\": "src/Supermercado/"`.
+- **Eventos:** los listeners en `app/Listeners` se cablean por **auto-discovery** de Laravel 11+ (NO hay `EventServiceProvider`; si se agrega uno, se duplican y disparan dos veces).
+- **Inertia v3:** root view `resources/views/app.blade.php` (`@inertia`); middleware `HandleInertiaRequests` registrado en `bootstrap/app.php`.
+- **`tests/Pest.php`** con `uses(Tests\TestCase::class)->in('Feature');` es obligatorio para que los feature tests booteen el app y resuelvan los bindings.
 
-## Estado y próximos pasos
+## Estado
 
-- ✅ Dominio + Infrastructure + Application + Presentation + Dockerfile + CI + seeder + README + Deploy section. **CI verde.**
-- ⏳ **Deploy** (Railway) — falta el click del usuario (su cuenta).
-- 🔜 Futuro (no bloqueante): domain events formales (ahora el StockAlert es in-memory), auth real en endpoints, frontend mínimo, portear a Postgres para deploy, más feature tests de edge cases.
+- ✅ Dominio + Infrastructure + Application + Presentation (API + Web/Inertia) + Eventos de dominio + Vue + Dockerfile + CI + seeder + README. **84 tests verde. CI verde.**
+- 🔜 Futuro: auth real en endpoints, SSR de Inertia, portear a Postgres, más tests de edge cases.
