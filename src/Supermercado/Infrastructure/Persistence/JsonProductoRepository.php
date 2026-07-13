@@ -62,6 +62,16 @@ final class JsonProductoRepository implements ProductoRepository
         $this->escribir($filas);
     }
 
+    public function delete(string $id): void
+    {
+        $filas = array_values(array_filter(
+            $this->leer(),
+            fn (array $fila): bool => (string) ($fila['id'] ?? '') !== $id,
+        ));
+
+        $this->escribir($filas);
+    }
+
     public function all(): array
     {
         return array_map(

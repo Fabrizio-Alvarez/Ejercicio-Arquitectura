@@ -21,7 +21,7 @@ Todo el código de dominio/aplicación está **en español** (clases, namespaces
 ```
 src/Supermercado/
   Domain/            # PURO PHP, sin Laravel. Tests unitarios sin DB.
-    Catalogo/ Producto, Oferta, Ofertas (colección first-class), ProductoRepository (port), OfertaRepository (port, read-only)
+    Catalogo/ Producto, Oferta, Ofertas (colección first-class), ProductoRepository (port, +delete), OfertaRepository (port, +save)
     Ventas/   Venta (aggregate: state machine + predicados isConfirmed/isForCashier/isOnDay +
               counts lineCount/itemCount), LineaDeVenta, EstadoDeVenta,
               Cotizador (servicio delgado, delega en Ofertas), CierreDeCaja, ResumenDeVenta,
@@ -37,7 +37,12 @@ src/Supermercado/
     Ventas/   CobrarProductos (+ CobrarRequest, ItemRequest, ProductoNoEncontradoException),
               ObtenerCierreDeCaja
     Stock/    ListarStock (+ VistaDeStock), RegistrarReposicion (+ ResultadoDeReposicion),
-              ListarMovimientos (+ MovimientoView), ListarAlertas (+ AlertaView)
+              ListarMovimientos (+ MovimientoView), ListarAlertas (+ AlertaView),
+              RegistrarReabastecimiento (+ ResultadoDeReabastecimiento), RegistrarAjuste
+    Catalogo/ CrearProducto, ActualizarProducto, EliminarProducto, CrearOferta
+    Tableros/ ObtenerTableroCajero (+ views), ObtenerTableroDepositista, ObtenerTableroRepositor
+    Auditoria/ ListarEventos (+ EventoView)
+    Reportes/ ObtenerReporteVentas (+ ReporteVentasView), ObtenerReporteMovimientos (+ ReporteMovimientosView)
   Infrastructure/Persistence/   # DOS adapters por cada port del dominio (frontera hexagonal honesta)
     Eloquent* (SQLite/Postgres) Y Json* (archivos de texto plano en disco)
     Models: ProductoModel, VentaModel, LineaDeVentaModel, GondolaModel, DepositoModel,
@@ -48,17 +53,17 @@ src/Supermercado/
 app/
   Access/                Perfil (enum puro: cajero/depositista/repositor), SesionDePerfil (deriva el perfil del usuario autenticado)
   Facades/               Perfil (Facade de acceso al perfil/usuario actual)
-  Http/Controllers/Api/  CobroController, CierreDeCajaController, StockController, ReposicionController
-  Http/Controllers/Web/  PaginaWebController (Inertia: stock/cobrar/cierre/movimientos/alertas + login/logout)
+  Http/Controllers/Api/  CobroController, CierreDeCajaController, StockController, ReposicionController, ReabastecimientoController, TokenController, CatalogoController, AjusteController
+  Http/Controllers/Web/  PaginaWebController (Inertia: tablero/catalogo/cobrar/cierre/movimientos/alertas/auditoria/reportes + login/logout)
   Http/Middleware/       HandleInertiaRequests, RequierePerfil (gatea vistas por perfil del usuario autenticado)
-  Listeners/             DescontarDeGondola, AvisarAlDeposito, Repositor, RegistrarAlerta (auto-discovery)
+  Listeners/             DescontarDeGondola, AvisarAlDeposito, Repositor, RegistrarAlerta, RegistrarEventoDeDominio (log de auditoría)
   Console/Commands/      ReponerStockCommand (CLI del repositor)
   Models/User            # rol → Perfil; Authenticatable para login web
   Providers/AppServiceProvider  # binds puertos → adapter (Eloquent por defecto, Json si SUPERMERCADO_PERSISTENCE=json) + 'sesion.de.perfil'
 config/supermercado.php  # persistence (eloquent|json) + json_dir
-routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}
-routes/web.php   # /login (GET+POST), /logout; grupo gateado 'perfil': /, /cobrar, /cierre, /stock, /movimientos, /alertas
-resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol + logout), Paginas/{Stock,Cobrar,Cierre,Movimientos,Alertas,Perfiles/Login}.vue
+routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}, /restock/{id}, /tokens, /products (CRUD), /offers (CRUD), /adjust/{id}
+routes/web.php   # /login (GET+POST), /logout; grupo gateado 'perfil': /, /tablero, /catalogo, /cobrar, /cierre, /stock, /movimientos, /alertas, /auditoria, /reportes
+resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol + logout), Paginas/{Tablero,Catalogo,Cobrar,Cierre,Movimientos,Alertas,Auditoria,Reportes,Perfiles/Login}.vue
 ```
 
 ## Modelo de dominio rico (Tell, Don't Ask)
@@ -117,13 +122,13 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 ## API auth (Sanctum)
 
 - `POST /api/tokens` valida email+password y emite un token Bearer. El token hereda el rol del usuario.
-- Todos los endpoints `/api/*` están bajo `auth:sanctum` + middleware `rol:X` (alias registrado en `bootstrap/app.php`): `checkout`/`cash-close` → **cajero**, `stock`/`replenish` → **repositor**, `restock` → **depositista`.
+- Todos los endpoints `/api/*` están bajo `auth:sanctum` + middleware `rol:X` (alias registrado en `bootstrap/app.php`): `checkout`/`cash-close` → **cajero**, `stock`/`replenish` → **repositor**, `restock`/`products`/`offers`/`adjust` → **depositista**.
 - El frontend SPA (Inertia) se autentica vía sesión stateful (cookie del login web); clientes externos usan `Authorization: Bearer <token>`. 401 sin auth, 403 con rol incorrecto.
 
 ## Perfiles y sus vistas
 
-- **Cajero** → `/tablero` (KPIs de ventas del día: total, ticket promedio, desglose por método de pago) + `/cobrar` (registrar venta) + `/cierre` (cierre de caja).
-- **Depositista** → `/tablero` (alertas activas + movimientos recientes + reabastecimientos del día) + `/movimientos` (auditoría) + `/alertas` (historial).
+- **Cajero** → `/tablero` (KPIs de ventas del día: total, ticket promedio, desglose por método de pago) + `/cobrar` (registrar venta) + `/cierre` (cierre de caja) + `/reportes` (histórico de ventas y movimientos con gráficos).
+- **Depositista** → `/tablero` + `/catalogo` (CRUD productos + ofertas) + `/movimientos` (auditoría + ajustes manuales) + `/alertas` (historial) + `/auditoria` (log de eventos de dominio) + `/reportes`.
 - **Repositor** → `/tablero` (stock crítico + conteos de góndola/depósito bajo) + `/stock` (stock por producto).
 
 ## Los casos de uso del spec (hechos + testeados)
@@ -136,6 +141,10 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 6. Alerta de stock → `AlertaDeStock` **persistida** (`AlertaDeStockRepository` + listener `RegistrarAlerta`): góndola <30 al vender y depósito <150 al reponer. Vista `/alertas`.
 7. Reabastecimiento del depósito → `RegistrarReabastecimiento` (resuelve alertas de depósito: recibe stock del proveedor, sube el nivel, registra `MovimientoDeStock` tipo `Reabastecimiento`). API `POST /api/restock`, CLI `stock:restock`, botón en la vista `/alertas`.
 8. Tableros por rol → `ObtenerTableroCajero` (ventas del día), `ObtenerTableroDepositista` (alertas + movimientos), `ObtenerTableroRepositor` (stock crítico). Cada rol ve su dashboard consolidado en `/tablero` tras login.
+9. Gestión de catálogo → `CrearProducto`, `ActualizarProducto`, `EliminarProducto`, `CrearOferta`. API REST CRUD (`/api/products`, `/api/offers`) con `rol:depositista`. Vista `/catalogo`.
+10. Ajustes manuales de stock → `RegistrarAjuste` (delta con signo sobre góndola o depósito, registra `MovimientoDeStock` tipo `Ajuste`). API `POST /api/adjust/{productId}`. Formulario en la vista `/movimientos`.
+11. Log de auditoría (event sourcing) → `RegistrarEventoDeDominio` (listener que persiste `CompraRealizada` y `AlertaDeStock` en `eventos_de_dominio`) + `ListarEventos`. Vista `/auditoria`.
+12. Reportes históricos → `ObtenerReporteVentas` (ventas por día, ticket promedio, top productos) + `ObtenerReporteMovimientos` (movimientos por tipo). Gráficos CSS en `/reportes`.
 
 ## Adaptador JSON (frontera hexagonal honesta)
 
@@ -180,5 +189,5 @@ SUPERMERCADO_PERSISTENCE=json docker compose run --rm app php artisan migrate:fr
 
 ## Estado
 
-- ✅ Dominio + Infrastructure (Eloquent **+ Json**) + Application + Presentation (API + Web/Inertia) + Eventos + **alertas persistidas** + **login + roles reales** + Vue + Dockerfile + Dockerfile.dev (Postgres) + CI + seeder + README.
+- ✅ Dominio + Infrastructure (Eloquent **+ Json**) + Application + Presentation (API + Web/Inertia) + Eventos + **alertas persistidas** + **login + roles reales** + Vue + Dockerfile + Dockerfile.dev (Postgres) + CI + seeder + README. **+ Catálogo CRUD + Ajustes manuales + Log de auditoría + Reportes históricos** (207 tests, 502 assertions).
 - 🔜 Futuro: SSR de Inertia, portear los feature tests a Postgres, más tests de edge cases.

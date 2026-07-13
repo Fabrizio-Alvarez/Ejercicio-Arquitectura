@@ -18,4 +18,7 @@ Route::middleware('perfil')->group(function () {
     Route::get('/movimientos', [PaginaWebController::class, 'movimientos'])->name('movimientos');
     Route::get('/alertas', [PaginaWebController::class, 'alertas'])->name('alertas');
     Route::get('/tablero', [PaginaWebController::class, 'tablero'])->name('tablero');
+    Route::get('/catalogo', [PaginaWebController::class, 'catalogo'])->name('catalogo');
+    Route::get('/auditoria', [PaginaWebController::class, 'auditoria'])->name('auditoria');
+    Route::get('/reportes', [PaginaWebController::class, 'reportes'])->name('reportes');
 });

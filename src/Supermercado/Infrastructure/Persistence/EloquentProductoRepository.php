@@ -33,6 +33,11 @@ final class EloquentProductoRepository implements ProductoRepository
         );
     }
 
+    public function delete(string $id): void
+    {
+        ProductoModel::destroy($id);
+    }
+
     public function all(): array
     {
         return ProductoModel::all()

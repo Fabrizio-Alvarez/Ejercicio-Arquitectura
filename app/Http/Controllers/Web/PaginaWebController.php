@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Supermercado\Application\Auditoria\ListarEventos;
+use Supermercado\Application\Reportes\ObtenerReporteMovimientos;
+use Supermercado\Application\Reportes\ObtenerReporteVentas;
 use Supermercado\Application\Stock\ListarAlertas;
 use Supermercado\Application\Stock\ListarMovimientos;
 use Supermercado\Application\Stock\ListarStock;
@@ -16,6 +19,7 @@ use Supermercado\Domain\Ventas\MetodoDePago;
 use Supermercado\Application\Tableros\ObtenerTableroCajero;
 use Supermercado\Application\Tableros\ObtenerTableroDepositista;
 use Supermercado\Application\Tableros\ObtenerTableroRepositor;
+use Supermercado\Infrastructure\Persistence\OfertaModel;
 
 /**
  * Sirve las páginas Vue (Inertia) del frontend del supermercado.
@@ -80,6 +84,44 @@ final class PaginaWebController extends Controller
         };
 
         return Inertia::render('Tablero', $datos);
+    }
+
+    public function catalogo(ProductoRepository $productos): Response
+    {
+        $ofertas = OfertaModel::all()->map(static fn ($o) => [
+            'id' => $o->id,
+            'productoId' => $o->product_id,
+            'porcentaje' => $o->percent,
+            'validoDesde' => $o->valid_from->format('Y-m-d H:i:s'),
+            'validoHasta' => $o->valid_to->format('Y-m-d H:i:s'),
+        ]);
+
+        return Inertia::render('Catalogo', [
+            'productos' => array_map(static fn ($p) => [
+                'id' => $p->id(),
+                'nombre' => $p->name(),
+                'precio' => $p->price()->amount() / 100,
+                'moneda' => $p->price()->currency(),
+            ], $productos->all()),
+            'ofertas' => $ofertas,
+        ]);
+    }
+
+    public function auditoria(ListarEventos $eventos): Response
+    {
+        return Inertia::render('Auditoria', [
+            'eventos' => array_map(static fn ($e) => (array) $e, $eventos->execute()),
+        ]);
+    }
+
+    public function reportes(
+        ObtenerReporteVentas $ventas,
+        ObtenerReporteMovimientos $movimientos,
+    ): Response {
+        return Inertia::render('Reportes', [
+            'ventas' => (array) $ventas->execute(),
+            'movimientos' => (array) $movimientos->execute(),
+        ]);
     }
 
     public function login(): Response

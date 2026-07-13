@@ -92,7 +92,12 @@ flowchart LR
 | 4 | Listar stock | `ListarStock` |
 | 5 | Registrar reposición | `RegistrarReposicion` + `PoliticaDeReposicion` |
 | 6 | Emitir y **persistir** alerta de stock bajo | `AlertaDeStock` + `AlertaDeStockRepository` (al vender y al reponer) |
-
+| 7 | Reabastecer depósito | `RegistrarReabastecimiento` + `Deposito::receive` |
+| 8 | Tablero consolidado por rol | `ObtenerTablero{Cajero,Depositista,Repositor}` |
+| 9 | Gestión de catálogo (CRUD productos + ofertas) | `Crear/Actualizar/EliminarProducto` · `CrearOferta` |
+| 10 | Ajuste manual de stock (góndola/depósito) | `RegistrarAjuste` |
+| 11 | Log de auditoría (event sourcing ligero) | `RegistrarEventoDeDominio` + `ListarEventos` |
+| 12 | Reportes históricos (ventas + movimientos) | `ObtenerReporteVentas` · `ObtenerReporteMovimientos` |
 ---
 
 ## API REST
@@ -105,6 +110,13 @@ flowchart LR
 | `GET`  | `/api/stock` | repositor | → stock por producto (góndola + depósito + flags de bajo) |
 | `POST` | `/api/replenish/{productId}` | repositor | → resultado de reposición + alerta |
 | `POST` | `/api/restock/{productId}` | depositista | `{quantity, proveedor?}` → nivel del depósito tras reabastecer |
+| `GET`  | `/api/products` | depositista | → lista de productos (id, nombre, precio, moneda) |
+| `POST` | `/api/products` | depositista | `{id, nombre, precio, moneda}` → 201 |
+| `PUT`  | `/api/products/{id}` | depositista | `{nombre, precio, moneda}` → 200 |
+| `DELETE` | `/api/products/{id}` | depositista | → 200 |
+| `POST` | `/api/offers` | depositista | `{productoId, porcentaje, validoDesde, validoHasta}` → 201 |
+| `DELETE` | `/api/offers/{id}` | depositista | → 200 |
+| `POST` | `/api/adjust/{productId}` | depositista | `{ubicacion, delta, motivo?}` → 200 |
 
 Todos los endpoints (salvo `/api/tokens`) requieren `auth:sanctum` + el rol indicado (middleware `rol`). 401 sin autenticación, 403 con rol incorrecto.
 
@@ -125,6 +137,9 @@ CLI: `php artisan stock:replenish {productId}` (repositor) · `php artisan stock
 | `/movimientos` | Depositista | `Movimientos.vue` | Auditoría de movimientos del depósito |
 | `/alertas` | Depositista | `Alertas.vue` | Historial de alertas de stock bajo persistidas |
 | `/stock` | Repositor | `Stock.vue` | Stock por producto con flags de góndola/depósito bajo |
+| `/catalogo` | Depositista | `Catalogo.vue` | CRUD de productos + ofertas → `POST/PUT/DELETE /api/products` |
+| `/auditoria` | Depositista | `Auditoria.vue` | Log de auditoría: eventos de dominio persistidos |
+| `/reportes` | Cajero, Depositista | `Reportes.vue` | Histórico de ventas y movimientos con gráficos CSS |
 
 Cada perfil ve solo sus vistas tras **login real** (users con `rol` mapeado a `Perfil`). El **Facade `Perfil`** expone el perfil del usuario autenticado; el middleware `RequierePerfil` gatea las rutas por rol. Seeder con users demo (`cajero@`/`depositista@`/`repositor@supermercado.test`, password `password`).
 

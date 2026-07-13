@@ -1,4 +1,7 @@
 <script setup>
+import { reactive } from 'vue';
+import { router } from '@inertiajs/vue3';
+
 defineProps({
     movimientos: { type: Array, default: () => [] },
     stockDeposito: { type: Array, default: () => [] },
@@ -8,7 +11,23 @@ const etiquetaTipo = {
     venta: { texto: 'Venta', clase: 'bg-amber-100 text-amber-700' },
     reposicion: { texto: 'Reposición', clase: 'bg-emerald-100 text-emerald-700' },
     ajuste: { texto: 'Ajuste', clase: 'bg-slate-200 text-slate-700' },
+    reabastecimiento: { texto: 'Reabastecimiento', clase: 'bg-sky-100 text-sky-700' },
 };
+
+const formAjuste = reactive({ productId: '', ubicacion: 'deposito', delta: '', motivo: '' });
+
+async function registrarAjuste() {
+    if (!formAjuste.productId || !formAjuste.delta) return;
+    const res = await fetch(`/api/adjust/${formAjuste.productId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ ubicacion: formAjuste.ubicacion, delta: parseInt(formAjuste.delta), motivo: formAjuste.motivo || null }),
+    });
+    if (res.ok) {
+        formAjuste.productId = ''; formAjuste.ubicacion = 'deposito'; formAjuste.delta = ''; formAjuste.motivo = '';
+        router.reload({ only: ['movimientos', 'stockDeposito'] });
+    }
+}
 </script>
 
 <template>
@@ -42,6 +61,35 @@ const etiquetaTipo = {
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="rounded-lg bg-white p-5 shadow-sm">
+            <h2 class="mb-4 text-lg font-bold">Nuevo ajuste de stock</h2>
+            <form @submit.prevent="registrarAjuste" class="flex flex-wrap gap-3 items-end">
+                <div class="flex-1 min-w-[180px]">
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Producto</label>
+                    <select v-model="formAjuste.productId" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+                        <option value="" disabled>Producto…</option>
+                        <option v-for="item in stockDeposito" :key="item.productId" :value="item.productId">{{ item.productId }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Ubicación</label>
+                    <select v-model="formAjuste.ubicacion" class="rounded border border-slate-300 px-3 py-2 text-sm">
+                        <option value="deposito">Depósito</option>
+                        <option value="gondola">Góndola</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Delta (+/−)</label>
+                    <input v-model="formAjuste.delta" type="number" class="w-24 rounded border border-slate-300 px-3 py-2 text-sm" />
+                </div>
+                <div class="flex-1 min-w-[160px]">
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Motivo</label>
+                    <input v-model="formAjuste.motivo" placeholder="Conteo, merma, rotura…" class="w-full rounded border border-slate-300 px-3 py-2 text-sm" />
+                </div>
+                <button type="submit" class="rounded bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Ajustar</button>
+            </form>
         </div>
 
         <div>

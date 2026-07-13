@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Supermercado\Domain\Catalogo;
 
 /**
- * Read-only repository port for offers. Offers are loaded by an external
- * system directly into the data source (per the spec); the application
- * only reads them to price sales.
+ * Repository port for offers. The application reads offers to price sales
+ * and manages them (create) via the catalog UI.
  */
 interface OfertaRepository
 {
@@ -20,4 +19,5 @@ interface OfertaRepository
      * @return Oferta[]
      */
     public function all(): array;
+    public function save(Oferta $oferta): void;
 }

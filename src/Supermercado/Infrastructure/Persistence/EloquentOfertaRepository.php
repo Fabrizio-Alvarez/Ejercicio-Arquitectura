@@ -24,6 +24,16 @@ final class EloquentOfertaRepository implements OfertaRepository
             ->all();
     }
 
+    public function save(Oferta $oferta): void
+    {
+        OfertaModel::create([
+            'product_id' => $oferta->productId(),
+            'percent' => $oferta->percent(),
+            'valid_from' => $oferta->validFrom(),
+            'valid_to' => $oferta->validTo(),
+        ]);
+    }
+
     private function toDomain(OfertaModel $row): Oferta
     {
         /** @var \Illuminate\Support\Carbon $validFrom */

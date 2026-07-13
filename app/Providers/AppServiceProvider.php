@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Listeners\RegistrarEventoDeDominio;
+use Illuminate\Support\Facades\Event;
+use Supermercado\Domain\Stock\AlertaDeStock;
+use Supermercado\Domain\Ventas\CompraRealizada;
 use App\Access\SesionDePerfil;
 use Illuminate\Support\ServiceProvider;
 use Supermercado\Domain\Stock\AlertaDeStockRepository;
@@ -57,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Event::listen(CompraRealizada::class, RegistrarEventoDeDominio::class);
+        Event::listen(AlertaDeStock::class, RegistrarEventoDeDominio::class);
     }
 }

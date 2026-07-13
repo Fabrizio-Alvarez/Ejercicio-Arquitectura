@@ -8,15 +8,8 @@ use Supermercado\Domain\Catalogo\Oferta;
 use Supermercado\Domain\Catalogo\OfertaRepository;
 
 /**
- * Adapter JsonOfertaRepository: lee Oferta desde un archivo JSON en disco
- * (ofertas.json) usando el trait AlmacenaJson.
- *
- * El port OfertaRepository es read-only: las ofertas las carga un sistema
- * externo directamente en el origen de datos (per spec). Por eso este adapter
- * NO expone save() — solo hidrata filas a Oferta.
- *
- * rutaDeArchivo() se expone únicamente para que los tests puedan sembrar el
- * archivo JSON a mano; no forma parte del contrato del dominio.
+ * Adapter JsonOfertaRepository: persiste Oferta sobre un archivo JSON en
+ * disco (ofertas.json) usando el trait AlmacenaJson.
  */
 final class JsonOfertaRepository implements OfertaRepository
 {
@@ -46,6 +39,18 @@ final class JsonOfertaRepository implements OfertaRepository
             fn (array $fila): Oferta => $this->aDominio($fila),
             $this->leer(),
         );
+    }
+
+    public function save(Oferta $oferta): void
+    {
+        $filas = $this->leer();
+        $filas[] = [
+            'product_id' => $oferta->productId(),
+            'percent' => $oferta->percent(),
+            'valid_from' => $oferta->validFrom()->format('Y-m-d H:i:s'),
+            'valid_to' => $oferta->validTo()->format('Y-m-d H:i:s'),
+        ];
+        $this->escribir($filas);
     }
 
     /**

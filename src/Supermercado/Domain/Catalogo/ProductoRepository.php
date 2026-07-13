@@ -14,6 +14,7 @@ interface ProductoRepository
     public function find(string $id): ?Producto;
 
     public function save(Producto $product): void;
+    public function delete(string $id): void;
 
     /**
      * @return Producto[]
