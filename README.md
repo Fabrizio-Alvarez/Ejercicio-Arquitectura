@@ -119,6 +119,7 @@ CLI: `php artisan stock:replenish {productId}` (repositor) · `php artisan stock
 | Ruta | Perfil | Página | Qué hace |
 |------|--------|--------|----------|
 | `/login` | (auth) | `Perfiles/Login.vue` | Login con email + password (users con `rol`) |
+| `/tablero` | Todos | `Tablero.vue` | Dashboard por rol: KPIs de ventas (cajero), alertas y movimientos (depositista), stock crítico (repositor) |
 | `/cobrar` | Cajero | `Cobrar.vue` | Registrar venta (producto, cantidad, método de pago) → `POST /api/checkout` |
 | `/cierre` | Cajero | `Cierre.vue` | Cierre de caja del día (por cajero) → `GET /api/cash-close` |
 | `/movimientos` | Depositista | `Movimientos.vue` | Auditoría de movimientos del depósito |

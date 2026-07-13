@@ -25,12 +25,12 @@ it('el cajero accede a /cierre', function () {
     $this->actingAs(cajero())->get('/cierre')->assertOk();
 });
 
-it('el cajero no puede ver /movimientos (vuelve a su home)', function () {
-    $this->actingAs(cajero())->get('/movimientos')->assertRedirect('/cobrar');
+it('el cajero no puede ver /movimientos (vuelve al tablero)', function () {
+    $this->actingAs(cajero())->get('/movimientos')->assertRedirect('/tablero');
 });
 
-it('el cajero no puede ver /alertas (vuelve a su home)', function () {
-    $this->actingAs(cajero())->get('/alertas')->assertRedirect('/cobrar');
+it('el cajero no puede ver /alertas (vuelve al tablero)', function () {
+    $this->actingAs(cajero())->get('/alertas')->assertRedirect('/tablero');
 });
 
 it('el depositista accede a /movimientos y /alertas', function () {
@@ -42,13 +42,13 @@ it('el repositor accede a /stock', function () {
     $this->actingAs(repositor())->get('/stock')->assertOk();
 });
 
-it('el depositista no puede ver /cierre (vuelve a su home)', function () {
-    $this->actingAs(depositista())->get('/cierre')->assertRedirect('/movimientos');
+it('el depositista no puede ver /cierre (vuelve al tablero)', function () {
+    $this->actingAs(depositista())->get('/cierre')->assertRedirect('/tablero');
 });
 
-it('la raíz envía a cada perfil a su propia home', function () {
-    $this->actingAs(depositista())->get('/')->assertRedirect('/movimientos');
-    $this->actingAs(repositor())->get('/')->assertRedirect('/stock');
+it('la raíz envía a cada perfil al tablero', function () {
+    $this->actingAs(depositista())->get('/')->assertRedirect('/tablero');
+    $this->actingAs(repositor())->get('/')->assertRedirect('/tablero');
 });
 
 it('/logout cierra la sesión y vuelve al login', function () {

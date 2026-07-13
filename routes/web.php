@@ -17,4 +17,5 @@ Route::middleware('perfil')->group(function () {
     Route::get('/stock', [PaginaWebController::class, 'stock'])->name('stock');
     Route::get('/movimientos', [PaginaWebController::class, 'movimientos'])->name('movimientos');
     Route::get('/alertas', [PaginaWebController::class, 'alertas'])->name('alertas');
+    Route::get('/tablero', [PaginaWebController::class, 'tablero'])->name('tablero');
 });

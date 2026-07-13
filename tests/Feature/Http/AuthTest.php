@@ -8,13 +8,13 @@ uses(RefreshDatabase::class);
 it('autentica con credenciales válidas y redirige al home del rol', function () {
     User::create(['name' => 'Cajero', 'email' => 'c@test', 'password' => 'secret', 'rol' => 'cajero']);
 
-    $this->post('/login', ['email' => 'c@test', 'password' => 'secret'])->assertRedirect('/cobrar');
+    $this->post('/login', ['email' => 'c@test', 'password' => 'secret'])->assertRedirect('/tablero');
 });
 
-it('el depositista autenticado va a /movimientos', function () {
+it('el depositista autenticado va al tablero', function () {
     User::create(['name' => 'Depo', 'email' => 'd@test', 'password' => 'secret', 'rol' => 'depositista']);
 
-    $this->post('/login', ['email' => 'd@test', 'password' => 'secret'])->assertRedirect('/movimientos');
+    $this->post('/login', ['email' => 'd@test', 'password' => 'secret'])->assertRedirect('/tablero');
 });
 
 it('rechaza credenciales inválidas con error de email', function () {

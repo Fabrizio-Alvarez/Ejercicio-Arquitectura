@@ -122,9 +122,9 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 
 ## Perfiles y sus vistas
 
-- **Cajero** → `/cobrar` (registrar venta) + `/cierre` (cierre de caja del día, dedicado).
-- **Depositista** → `/movimientos` (auditoría del depósito) + `/alertas` (historial de alertas de stock bajo persistidas).
-- **Repositor** → `/stock` (stock por producto con flags de góndola/depósito bajo).
+- **Cajero** → `/tablero` (KPIs de ventas del día: total, ticket promedio, desglose por método de pago) + `/cobrar` (registrar venta) + `/cierre` (cierre de caja).
+- **Depositista** → `/tablero` (alertas activas + movimientos recientes + reabastecimientos del día) + `/movimientos` (auditoría) + `/alertas` (historial).
+- **Repositor** → `/tablero` (stock crítico + conteos de góndola/depósito bajo) + `/stock` (stock por producto).
 
 ## Los casos de uso del spec (hechos + testeados)
 
@@ -135,6 +135,7 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 5. Reposición → `RegistrarReposicion` + `PoliticaDeReposicion` (<30 → 50, capped por depósito).
 6. Alerta de stock → `AlertaDeStock` **persistida** (`AlertaDeStockRepository` + listener `RegistrarAlerta`): góndola <30 al vender y depósito <150 al reponer. Vista `/alertas`.
 7. Reabastecimiento del depósito → `RegistrarReabastecimiento` (resuelve alertas de depósito: recibe stock del proveedor, sube el nivel, registra `MovimientoDeStock` tipo `Reabastecimiento`). API `POST /api/restock`, CLI `stock:restock`, botón en la vista `/alertas`.
+8. Tableros por rol → `ObtenerTableroCajero` (ventas del día), `ObtenerTableroDepositista` (alertas + movimientos), `ObtenerTableroRepositor` (stock crítico). Cada rol ve su dashboard consolidado en `/tablero` tras login.
 
 ## Adaptador JSON (frontera hexagonal honesta)
 

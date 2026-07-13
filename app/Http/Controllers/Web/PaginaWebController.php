@@ -13,6 +13,9 @@ use Supermercado\Application\Stock\ListarMovimientos;
 use Supermercado\Application\Stock\ListarStock;
 use Supermercado\Domain\Catalogo\ProductoRepository;
 use Supermercado\Domain\Ventas\MetodoDePago;
+use Supermercado\Application\Tableros\ObtenerTableroCajero;
+use Supermercado\Application\Tableros\ObtenerTableroDepositista;
+use Supermercado\Application\Tableros\ObtenerTableroRepositor;
 
 /**
  * Sirve las páginas Vue (Inertia) del frontend del supermercado.
@@ -64,6 +67,21 @@ final class PaginaWebController extends Controller
     {
         return Inertia::render('Cierre');
     }
+
+    public function tablero(
+        ObtenerTableroCajero $cajero,
+        ObtenerTableroDepositista $depositista,
+        ObtenerTableroRepositor $repositor,
+    ): Response {
+        $datos = match (Perfil::actual()->value) {
+            'cajero' => ['tipo' => 'cajero', 'datos' => (array) $cajero->execute()],
+            'depositista' => ['tipo' => 'depositista', 'datos' => (array) $depositista->execute()],
+            'repositor' => ['tipo' => 'repositor', 'datos' => (array) $repositor->execute()],
+        };
+
+        return Inertia::render('Tablero', $datos);
+    }
+
     public function login(): Response
     {
         return Inertia::render('Perfiles/Login');
