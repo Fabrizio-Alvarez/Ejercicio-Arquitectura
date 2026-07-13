@@ -6,22 +6,22 @@
 
 ## Qué es
 
-Backend de gestión de stock de supermercado en **Laravel 13 + PHP 8.4** con **arquitectura DDD/hexagonal estricta**, **eventos de dominio** (flujo de compra → depósito → repositor) y un **frontend Vue 3 + Inertia.js**. El dominio es PHP puro, testeado con Pest **sin Laravel ni DB** — prueba que la frontera hexagonal es real.
+Backend de gestión de stock de supermercado en **Laravel 13 + PHP 8.4** con **arquitectura DDD/hexagonal estricta**, **eventos de dominio** (flujo de compra → depósito → repositor), **persistencia de alertas** y un **frontend Vue 3 + Inertia.js** con **login + roles reales**. El dominio es PHP puro, testeado con Pest **sin Laravel ni DB** — prueba que la frontera hexagonal es real.
 
 Todo el código de dominio/aplicación está **en español** (clases, namespaces, tablas); se conservan los términos propios de buenas prácticas (`Repository`, `Controller`, `Model`, `Middleware`, `Event` vía `Event::dispatch`).
 
 ## Stack y versiones
 
 - Laravel **13** · PHP **8.4** (obligatorio) · Pest · Inertia.js 3 · Vue 3 · Vite 8 · Tailwind 4 · Docker · GitHub Actions.
-- DB: **SQLite** (dev + tests `:memory:`). Postgres declarado para deploy.
-- Auth: Sanctum (instalado; endpoints públicos). Acceso web por **selector de perfiles** (sin login): cajero / depositista / repositor.
+- DB: **SQLite** (dev + tests `:memory:`). **Postgres** declarado para deploy (perfil `docker compose --profile postgres`). **JSON en disco** como adapter alternativo (cumple el spec no funcional de "archivos de texto plano").
+- Auth: **login web real** (users + roles mapeados a perfiles). Sanctum instalado para API.
 
 ## Arquitectura (capas, dependencia siempre hacia adentro)
 
 ```
 src/Supermercado/
   Domain/            # PURO PHP, sin Laravel. Tests unitarios sin DB.
-    Catalogo/ Producto, Oferta, Ofertas (colección first-class), ProductoRepository (port), OfertaRepository (port)
+    Catalogo/ Producto, Oferta, Ofertas (colección first-class), ProductoRepository (port), OfertaRepository (port, read-only)
     Ventas/   Venta (aggregate: state machine + predicados isConfirmed/isForCashier/isOnDay +
               counts lineCount/itemCount), LineaDeVenta, EstadoDeVenta,
               Cotizador (servicio delgado, delega en Ofertas), CierreDeCaja, ResumenDeVenta,
@@ -30,29 +30,35 @@ src/Supermercado/
               PoliticaDeReposicion (orquestador delgado, TARGET_LEVEL), DecisionDeReposicion (+ none),
               AlertaDeStock (valor + evento), UbicacionDeStock (enum), TipoDeMovimiento (enum),
               MovimientoDeStock (auditoría), MovimientoDeStockRepository (port),
+              AlertaDeStockRepository (port, persiste las alertas),
               GondolaRepository (port), DepositoRepository (port)
     Comun/    Dinero (VO, integer cents, +sum), MonedaDistintaException
   Application/       # Casos de uso (orquestan dominio + puertos)
     Ventas/   CobrarProductos (+ CobrarRequest, ItemRequest, ProductoNoEncontradoException),
               ObtenerCierreDeCaja
     Stock/    ListarStock (+ VistaDeStock), RegistrarReposicion (+ ResultadoDeReposicion),
-              ListarMovimientos (+ MovimientoView)
-  Infrastructure/Persistence/   # Adapters Eloquent de los puertos del dominio
-    ProductoModel, VentaModel, LineaDeVentaModel, GondolaModel, DepositoModel, OfertaModel,
-    MovimientoDeStockModel
-    Eloquent{Producto,Oferta,Venta,Gondola,Deposito,MovimientoDeStock}Repository
+              ListarMovimientos (+ MovimientoView), ListarAlertas (+ AlertaView)
+  Infrastructure/Persistence/   # DOS adapters por cada port del dominio (frontera hexagonal honesta)
+    Eloquent* (SQLite/Postgres) Y Json* (archivos de texto plano en disco)
+    Models: ProductoModel, VentaModel, LineaDeVentaModel, GondolaModel, DepositoModel,
+            OfertaModel, MovimientoDeStockModel, AlertaDeStockModel
+    Trait: AlmacenaJson (I/O read/write de archivos JSON; dir base configurable)
+    Eloquent{Producto,Oferta,Venta,Gondola,Deposito,MovimientoDeStock,AlertaDeStock}Repository
+    Json{Producto,Oferta,Venta,Gondola,Deposito,MovimientoDeStock,AlertaDeStock}Repository
 app/
-  Access/                Perfil (enum puro: cajero/depositista/repositor), SesionDePerfil
-  Facades/               Perfil (Facade de acceso al perfil actual)
+  Access/                Perfil (enum puro: cajero/depositista/repositor), SesionDePerfil (deriva el perfil del usuario autenticado)
+  Facades/               Perfil (Facade de acceso al perfil/usuario actual)
   Http/Controllers/Api/  CobroController, CierreDeCajaController, StockController, ReposicionController
-  Http/Controllers/Web/  PaginaWebController (Inertia: stock/cobrar/movimientos + selector /iniciar)
-  Http/Middleware/       HandleInertiaRequests, RequierePerfil (gatea vistas por perfil)
-  Listeners/             DescontarDeGondola, AvisarAlDeposito, Repositor  (auto-discovery)
+  Http/Controllers/Web/  PaginaWebController (Inertia: stock/cobrar/cierre/movimientos/alertas + login/logout)
+  Http/Middleware/       HandleInertiaRequests, RequierePerfil (gatea vistas por perfil del usuario autenticado)
+  Listeners/             DescontarDeGondola, AvisarAlDeposito, Repositor, RegistrarAlerta (auto-discovery)
   Console/Commands/      ReponerStockCommand (CLI del repositor)
-  Providers/AppServiceProvider  # binds puertos → adapters + 'sesion.de.perfil'
+  Models/User            # rol → Perfil; Authenticatable para login web
+  Providers/AppServiceProvider  # binds puertos → adapter (Eloquent por defecto, Json si SUPERMERCADO_PERSISTENCE=json) + 'sesion.de.perfil'
+config/supermercado.php  # persistence (eloquent|json) + json_dir
 routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}
-routes/web.php   # /iniciar (selector), /salir; grupo gateado 'perfil': /, /cobrar, /stock, /movimientos
-resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol), Paginas/{Stock,Cobrar,Movimientos,Perfiles/Iniciar}.vue
+routes/web.php   # /login (GET+POST), /logout; grupo gateado 'perfil': /, /cobrar, /cierre, /stock, /movimientos, /alertas
+resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol + logout), Paginas/{Stock,Cobrar,Cierre,Movimientos,Alertas,Perfiles/Login}.vue
 ```
 
 ## Modelo de dominio rico (Tell, Don't Ask)
@@ -68,7 +74,7 @@ a los objetos en lugar de inspeccionarlos y recalcular.
 - `Ofertas` es una colección first-class (`bestActiveFor`); `Cotizador` queda delgado.
 - `Dinero::sum()` elimina el fold manual repetido en los totales.
 
-## Flujo de eventos (compra → depósito → repositor)
+## Flujo de eventos (compra → depósito → repositor → alerta persistida)
 
 ```
 POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
@@ -76,50 +82,79 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
                 ┌──────────────────┴──────────────────┐
         DescontarDeGondola                     AvisarAlDeposito
         descuenta la góndola (sale el          registra MovimientoDeStock
-        producto vendido)                      (auditoría del depósito: "el
-                │                              depósito avisa a su repositorio")
+        producto vendido)                      (auditoría del depósito)
                 │ si gondola < 30
                 ▼
-        AlertaDeStock(gondola)
-                │
-                ▼
-        Repositor (servicio, sin identidad): repone desde el depósito
+        AlertaDeStock(gondola) ── Event::dispatch ──┐
+                │                                   ▼
+                ▼                            RegistrarAlerta (persiste la alerta)
+        Repositor (servicio): repone         ↳ AlertaDeStockRepository
+        desde el depósito                       (tabla alertas_de_stock / alertas.json)
         (PoliticaDeReposicion: <30 → llenar a 50; depósito <150 → alerta)
+                │ si depósito < 150 (tras reponer)
+                ▼
+        AlertaDeStock(deposito) ── Event::dispatch ──→ RegistrarAlerta (persiste)
 ```
 
 - La **Venta** es un aggregate: registra líneas, total, **método de pago** y estado; al confirmarse graba el evento.
-- **DescontarDeGondola**: descuenta el stock de exhibición (de donde sale el producto).
+- **DescontarDeGondola**: descuenta el stock de exhibición; si la góndola cae bajo su mínimo, despacha `AlertaDeStock`.
 - **AvisarAlDeposito**: el depósito deja huella del movimiento (no descuenta backstock en la venta).
-- **AlertaDeStock**: evento cuando góndola o depósito caen bajo su mínimo.
-- **Repositor**: servicio sin identidad que repone la góndola desde el depósito al recibir la alerta.
+- **RegistrarReposicion**: aplica la reposición y, si el depósito cae bajo 150, **despacha** `AlertaDeStock` de depósito (antes sólo la devolvía como valor).
+- **Repositor**: servicio sin identidad que repone la góndola desde el depósito al recibir la alerta de góndola.
+- **RegistrarAlerta**: persiste cada `AlertaDeStock` (de góndola al vender y de depósito al reponer) — el spec exige *"incluidas las alertas de stock"*.
 
-## Perfiles del frontend (selector, sin login)
+## Auth: login + roles reales
 
-- Tres perfiles, cada uno con su vista: **Cajero** → /cobrar, **Depositista** → /movimientos, **Repositor** → /stock.
-- `/iniciar` es el selector; el perfil se persiste en sesión vía el **Facade `Perfil`** (`App\Access\SesionDePerfil`, binding `sesion.de.perfil`), sin login.
-- El middleware `RequierePerfil` (alias `perfil`) gatea: sin perfil → /iniciar; ruta no permitida para el perfil → su home.
-- `HandleInertiaRequests` comparte el perfil a todas las páginas; `AppLayout` pinta nav + indicador conscientes del rol.
+- Reemplazo del **selector de perfiles sin login** por **auth web real**: tabla `users` con campo `rol` (cajero/depositista/repositor).
+- `App\Models\User::perfil()` mapea `rol` → enum `Perfil`. `SesionDePerfil::actual()` deriva el perfil del usuario autenticado (`Auth::user()`), no de la sesión.
+- El **Facade `Perfil`** sigue siendo la API pública — controladores y middleware no cambiaron: `Perfil::actual()` / `Perfil::tiene()`.
+- `/login` (GET form + POST `Auth::attempt`) y `/logout` (POST). Middleware `RequierePerfil` (alias `perfil`) gatea: sin sesión → /login; ruta no permitida para el rol → su home.
+- `HandleInertiaRequests` comparte `perfil` y `usuario` a todas las páginas; `AppLayout` pinta nav + nombre + rol + botón **Cerrar sesión**.
+- Seeder crea 3 users demo: `cajero@`/`depositista@`/`repositor@supermercado.test`, password `password`.
+
+## Perfiles y sus vistas
+
+- **Cajero** → `/cobrar` (registrar venta) + `/cierre` (cierre de caja del día, dedicado).
+- **Depositista** → `/movimientos` (auditoría del depósito) + `/alertas` (historial de alertas de stock bajo persistidas).
+- **Repositor** → `/stock` (stock por producto con flags de góndola/depósito bajo).
 
 ## Los casos de uso del spec (hechos + testeados)
 
 1. Cálculo de precios con ofertas → `Cotizador` (mejor oferta activa, time-windowed).
 2. Registro de ventas → `Venta` aggregate (state machine, currency invariant, freeze de precio, **método de pago**).
-3. Cierre de caja → `CierreDeCaja::forCashierOn`.
+3. Cierre de caja → `CierreDeCaja::forCashierOn` + vista `/cierre`.
 4. Listado de stock → `ListarStock`.
 5. Reposición → `RegistrarReposicion` + `PoliticaDeReposicion` (<30 → 50, capped por depósito).
-6. Alerta de stock → `AlertaDeStock` (al reposicionar, depósito <150; y ahora también al vender, góndola <30).
+6. Alerta de stock → `AlertaDeStock` **persistida** (`AlertaDeStockRepository` + listener `RegistrarAlerta`): góndola <30 al vender y depósito <150 al reponer. Vista `/alertas`.
+
+## Adaptador JSON (frontera hexagonal honesta)
+
+- Por cada port del dominio hay **dos adapters**: `Eloquent*Repository` (SQLite/Postgres) y `Json*Repository` (archivos de texto plano en disco).
+- El trait `AlmacenaJson` provee el I/O (`leer()`/`escribir()`); cada adapter declara su archivo y su hidratación dominio↔fila.
+- El binding se elige en `AppServiceProvider` según `config('supermercado.persistence')`: `'eloquent'` (default) o `'json'` (vía `SUPERMERCADO_PERSISTENCE=json`). Directorio base: `config('supermercado.json_dir')` (default `storage/app/supermercado`).
+- **No se toca el dominio** al cambiar el origen de datos: es la prueba de que la frontera hexagonal es real.
 
 ## Cómo correr / testear / deployar
 
 **No hay PHP/composer nativos en Windows.** Se desarrolla via Docker:
 ```bash
 docker() { "C:\Program Files\Docker\Docker\resources\bin\docker.exe" "$@"; }
-docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php vendor/bin/pest
-docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php artisan migrate:fresh --seed
+
+# SQLite (default):
+docker compose run --rm app php vendor/bin/pest
+docker compose run --rm app php artisan migrate:fresh --seed
+
+# Postgres (perfil opt-in):
+docker compose --profile postgres run --rm app-pg composer install
+docker compose --profile postgres run --rm app-pg php artisan migrate --seed
+#  (en .env: DB_CONNECTION=pgsql DB_HOST=postgres ...)
+
+# Sobre JSON (cambia el origen a archivos de texto plano):
+SUPERMERCADO_PERSISTENCE=json docker compose run --rm app php artisan migrate:fresh --seed
 ```
-- **Tests:** `vendor/bin/pest`. Unit (dominio puro) + Feature (persistencia/app/HTTP/eventos/web/perfiles). 94 tests, verde. CI verde.
+- **Tests:** `vendor/bin/pest`. Unit (dominio puro) + Feature (persistencia/app/HTTP/eventos/web/auth/JSON-adapters).
 - **Frontend:** `npm install && npm run build` (nativo; Node 24). Dev: `npm run dev` (Vite) + `php artisan serve`.
-- **Deploy:** `Dockerfile` (single container, `php artisan migrate --seed` + `php artisan serve`, lee `PORT`). Seed demo en `database/seeders/DatabaseSeeder.php`.
+- **Deploy:** `Dockerfile` (single container, `php artisan migrate --seed` + `php artisan serve`, lee `PORT`). Incluye `pdo_sqlite` + `pdo_pgsql`. Seed demo en `database/seeders/DatabaseSeeder.php`.
 
 ## ⚠️ Gotchas
 
@@ -128,10 +163,12 @@ docker run --rm -v "$PWD:/var/www/html" -w /var/www/html composer:latest php art
 - **CI sin `.env`** → `phpunit.xml` setea `APP_KEY` (sino, `MissingAppKeyException` en feature tests).
 - **PSR-4:** `"Supermercado\\": "src/Supermercado/"`.
 - **Eventos:** los listeners en `app/Listeners` se cablean por **auto-discovery** de Laravel 11+ (NO hay `EventServiceProvider`; si se agrega uno, se duplican y disparan dos veces).
+- **Auth:** el perfil viene del usuario autenticado (`Auth::user()->perfil()`), no de la sesión. Si re-introducís un selector manual, hay que tocar `SesionDePerfil`.
 - **Inertia v3:** root view `resources/views/app.blade.php` (`@inertia`); middleware `HandleInertiaRequests` registrado en `bootstrap/app.php`.
-- **`tests/Pest.php`** con `uses(Tests\TestCase::class)->in('Feature');` es obligatorio para que los feature tests booteen el app y resuelvan los bindings.
+- **`tests/Pest.php`** con `uses(Tests\TestCase::class)->in('Feature');` + helpers `cajero()/depositista()/repositor()` es obligatorio para que los feature tests booteen el app y resuelvan los bindings.
+- **JSON adapters:** no usan DB; los tests setean `config(['supermercado.json_dir' => $tmpDir])` en `beforeEach`.
 
 ## Estado
 
-- ✅ Dominio + Infrastructure + Application + Presentation (API + Web/Inertia) + Eventos + **selector de perfiles** + Vue + Dockerfile + CI + seeder + README. **94 tests verde. CI verde.**
-- 🔜 Futuro: login + roles reales sobre los perfiles actuales, SSR de Inertia, portear a Postgres, más tests de edge cases.
+- ✅ Dominio + Infrastructure (Eloquent **+ Json**) + Application + Presentation (API + Web/Inertia) + Eventos + **alertas persistidas** + **login + roles reales** + Vue + Dockerfile + Dockerfile.dev (Postgres) + CI + seeder + README.
+- 🔜 Futuro: SSR de Inertia, portear los feature tests a Postgres, más tests de edge cases.

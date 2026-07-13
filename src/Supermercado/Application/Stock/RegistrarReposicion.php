@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Supermercado\Application\Stock;
 
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Supermercado\Domain\Stock\UbicacionDeStock;
 use Supermercado\Domain\Stock\PoliticaDeReposicion;
@@ -63,6 +64,9 @@ final class RegistrarReposicion
         $alert = $result->emitsAlert()
             ? new AlertaDeStock($productId, UbicacionDeStock::Deposito, $warehouse->quantity(), new \DateTimeImmutable('now'))
             : null;
+        if ($alert !== null) {
+            Event::dispatch($alert);
+        }
 
         return new ResultadoDeReposicion($result, $alert);
     }

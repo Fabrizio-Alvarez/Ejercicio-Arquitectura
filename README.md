@@ -32,9 +32,9 @@ flowchart TD
     EVT["Eventos: CompraRealizada, AlertaDeStock"]
     SVC["Servicios: Cotizador, PoliticaDeReposicion"]
   end
-  subgraph Infra["Infraestructura (Laravel/Eloquent)"]
+  subgraph Infra["Infraestructura (Laravel)"]
     PORT["Puertos de repositorio (interfaces)"]
-    ADP["Adapters Eloquent"]
+    ADP["Adapters Eloquent **+ Json** (frontera hexagonal honesta)"]
   end
   WEB --> UC
   REST --> UC
@@ -43,7 +43,7 @@ flowchart TD
   UC --> SVC
   UC --> PORT
   ADP -.->|"implementa puerto"| PORT
-  ADP --> ELO["Modelos Eloquent + migraciones"]
+  ADP --> ELO["Modelos Eloquent + migraciones **+ archivos JSON**"]
 ```
 
 - **Dominio** no sabe nada de Laravel, la DB ni HTTP. Sigue un **modelo rico**: la lógica vive en
@@ -75,9 +75,10 @@ flowchart LR
   confirmarse graba `CompraRealizada`.
 - **DescontarDeGondola**: descuenta el stock de exhibición (de donde sale el producto).
 - **AvisarAlDeposito**: el depósito deja huella del movimiento (no descuenta backstock en la venta).
-- **AlertaDeStock**: cuando la góndola o el depósito caen bajo su mínimo.
+- **AlertaDeStock**: cuando la góndola o el depósito caen bajo su mínimo. El listener
+  **RegistrarAlerta** **persiste** cada alerta (góndola al vender, depósito al reponer).
 - **Repositor**: un servicio **sin identidad** que repone la góndola desde el depósito
-  al recibir la alerta.
+  al recibir la alerta de góndola.
 
 ---
 
@@ -90,7 +91,7 @@ flowchart LR
 | 3 | Cierre de caja (por cajero/día) | `CierreDeCaja` + `ObtenerCierreDeCaja` |
 | 4 | Listar stock | `ListarStock` |
 | 5 | Registrar reposición | `RegistrarReposicion` + `PoliticaDeReposicion` |
-| 6 | Emitir alerta de stock bajo | `AlertaDeStock` (al reposicionar y al vender) |
+| 6 | Emitir y **persistir** alerta de stock bajo | `AlertaDeStock` + `AlertaDeStockRepository` (al vender y al reponer) |
 
 ---
 
@@ -113,12 +114,14 @@ CLI del repositor: `php artisan stock:replenish {productId}`
 
 | Ruta | Perfil | Página | Qué hace |
 |------|--------|--------|----------|
-| `/iniciar` | (selector) | `Perfiles/Iniciar.vue` | Selector de perfil: cajero / depositista / repositor |
+| `/login` | (auth) | `Perfiles/Login.vue` | Login con email + password (users con `rol`) |
 | `/cobrar` | Cajero | `Cobrar.vue` | Registrar venta (producto, cantidad, método de pago) → `POST /api/checkout` |
+| `/cierre` | Cajero | `Cierre.vue` | Cierre de caja del día (por cajero) → `GET /api/cash-close` |
 | `/movimientos` | Depositista | `Movimientos.vue` | Auditoría de movimientos del depósito |
+| `/alertas` | Depositista | `Alertas.vue` | Historial de alertas de stock bajo persistidas |
 | `/stock` | Repositor | `Stock.vue` | Stock por producto con flags de góndola/depósito bajo |
 
-Cada perfil ve solo su vista (sin login): `/iniciar` persiste el perfil en sesión vía el **Facade `Perfil`**, y el middleware `RequierePerfil` gatea las rutas por perfil.
+Cada perfil ve solo sus vistas tras **login real** (users con `rol` mapeado a `Perfil`). El **Facade `Perfil`** expone el perfil del usuario autenticado; el middleware `RequierePerfil` gatea las rutas por rol. Seeder con users demo (`cajero@`/`depositista@`/`repositor@supermercado.test`, password `password`).
 
 ---
 
@@ -135,8 +138,7 @@ npm install
 npm run build   # o npm run dev para HMR
 ```
 
-Storage **SQLite** (`:memory:` en tests, archivo en dev). Imagen de producción vía
-`Dockerfile` (single container, `php artisan serve`, lee `PORT`).
+Storage configurable: **SQLite** (default) o **Postgres** (`--profile postgres`, `DB_CONNECTION=pgsql`); además, un **adapter JSON en disco** (`SUPERMERCADO_PERSISTENCE=json`) cumple el spec no funcional de "archivos de texto plano" sin tocar el dominio. Imagen de producción vía `Dockerfile` (single container, `php artisan migrate --seed`, lee `PORT`; `pdo_sqlite` + `pdo_pgsql`).
 
 ---
 
@@ -150,9 +152,11 @@ Pirámide de tests:
 - **Unit (dominio puro)** — `tests/Unit/Domain/**`: Dinero, Oferta, aggregate Venta
   (state machine, invariante de moneda, método de pago), Cotizador, PoliticaDeReposicion.
   Sin Laravel, sin DB.
-- **Feature (persistencia + casos de uso + HTTP + eventos + web)** — `tests/Feature/**`:
-  adapters de repositorio contra SQLite real, los casos de uso, la API REST, el **flujo
--  de eventos** (`FlujoDeCompraTest`), las **páginas Inertia** (`PaginasWebTest`) y el **gating por perfil** (`PerfilTest`).
+- **Feature (persistencia + casos de uso + HTTP + eventos + web + auth)** — `tests/Feature/**`:
+  adapters Eloquent contra SQLite real, **los mismos ports sobre JSON en disco** (`Json*RepositoryTest`),
+  los casos de uso, la API REST, el **flujo de eventos** (`FlujoDeCompraTest`), las **alertas persistidas**
+  (`AlertaRepositoryTest`, `AlertasPersistidasTest`), las **páginas Inertia** (`PaginasWebTest`), el **gating
+  por rol** (`PerfilTest`) y el **login/logout** (`AuthTest`).
 
 ---
 
@@ -175,10 +179,14 @@ Pirámide de tests:
 - **Regla de reposición como decisión pura.** `PoliticaDeReposicion::decide` es función
   pura de (gondola, deposito) → (movimiento, alerta). La capa de aplicación la aplica y
   persiste. Testeada exhaustivamente, incluido el límite exacto de 150.
-- **Selector de perfiles vía Facade.** El perfil actual vive en sesión, expuesto por el
-  Facade `Perfil` (`Perfil::actual()`) — controladores y middleware no tocan la sesión.
-  El enum `Perfil` (puro) define qué ve cada rol; `RequierePerfil` gatea. Sin login, listo
-  para evolucionar a auth real sin tocar los controladores.
+- **Login + roles reales, perfil vía Facade.** El perfil se deriva del usuario autenticado
+  (`User::perfil()` mapea `rol` → `Perfil`) y se expone por el Facade `Perfil` — controladores y
+  middleware no cambian respecto del selector anterior: `Perfil::actual()` sigue siendo la API.
+  `RequierePerfil` gatea por rol; `/login` + `/logout` con users demo en el seeder.
+- **Adapter JSON: la frontera hexagonal es honesta.** Por cada port del dominio hay **dos**
+  adapters (Eloquent + Json) elegibles por env (`SUPERMERCADO_PERSISTENCE`). Cambiar el origen de
+  datos (SQLite/Postgres ↔ archivos JSON) no toca una línea del dominio — la prueba de que la
+  arquitectura no es decoración.
 
 ---
 

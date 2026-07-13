@@ -11,6 +11,7 @@ use Supermercado\Domain\Stock\GondolaRepository;
 use Supermercado\Domain\Stock\Deposito;
 use Supermercado\Domain\Stock\DepositoRepository;
 use Supermercado\Infrastructure\Persistence\OfertaModel;
+use App\Models\User;
 
 /**
  * Seeds a small, meaningful demo dataset (idempotent) so the deployed API
@@ -45,5 +46,11 @@ class DatabaseSeeder extends Seeder
                 );
             }
         }
+
+        // Usuarios demo para el login web con roles (uno por perfil).
+        // Contraseña: 'password' (hasheada por el cast del modelo User).
+        User::firstOrCreate(['email' => 'cajero@supermercado.test'], ['name' => 'Cajero Demo', 'password' => 'password', 'rol' => 'cajero']);
+        User::firstOrCreate(['email' => 'depositista@supermercado.test'], ['name' => 'Empleado del depósito', 'password' => 'password', 'rol' => 'depositista']);
+        User::firstOrCreate(['email' => 'repositor@supermercado.test'], ['name' => 'Repositor Demo', 'password' => 'password', 'rol' => 'repositor']);
     }
 }

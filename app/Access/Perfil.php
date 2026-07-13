@@ -45,8 +45,8 @@ enum Perfil: string
     public function paginas(): array
     {
         return match ($this) {
-            self::Cajero      => [['ruta' => 'cobrar', 'etiqueta' => 'Registrar venta']],
-            self::Depositista => [['ruta' => 'movimientos', 'etiqueta' => 'Movimientos']],
+            self::Cajero      => [['ruta' => 'cobrar', 'etiqueta' => 'Registrar venta'], ['ruta' => 'cierre', 'etiqueta' => 'Cierre de caja']],
+            self::Depositista => [['ruta' => 'movimientos', 'etiqueta' => 'Movimientos'], ['ruta' => 'alertas', 'etiqueta' => 'Alertas']],
             self::Repositor   => [['ruta' => 'stock', 'etiqueta' => 'Stock']],
         };
     }

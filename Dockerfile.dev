@@ -1,0 +1,16 @@
+# Dev image con AMBOS drivers (pdo_sqlite + pdo_pgsql) para poder correr la app
+# contra SQLite (default) o Postgres (perfil postgres) sin cambiar de imagen.
+#
+# Uso:
+#   docker compose run --rm app composer install        # SQLite (composer:2)
+#   docker compose --profile postgres run --rm app-pg php artisan migrate
+FROM php:8.4-cli-alpine
+
+# pdo_sqlite + pdo_pgsql + composer.
+RUN apk add --no-cache sqlite-libs postgresql-libs git unzip \
+    && apk add --no-cache --virtual .build-deps ${PHPIZE_DEPS} sqlite-dev postgresql-dev \
+    && docker-php-ext-install pdo_sqlite pdo_pgsql \
+    && apk del .build-deps \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+WORKDIR /var/www/html

@@ -11,9 +11,11 @@ FROM php:8.4-cli-alpine
 
 WORKDIR /var/www/html
 
-# pdo_sqlite for the SQLite storage.
-RUN apk add --no-cache sqlite-libs \
-    && docker-php-ext-install pdo_sqlite
+# SQLite + Postgres drivers. El deploy elige el origen por DB_CONNECTION.
+RUN apk add --no-cache sqlite-libs postgresql-libs \
+    && apk add --no-cache --virtual .build-deps ${PHPIZE_DEPS} sqlite-dev postgresql-dev \
+    && docker-php-ext-install pdo_sqlite pdo_pgsql \
+    && apk del .build-deps
 
 COPY --from=vendor /app/vendor ./vendor
 COPY . .

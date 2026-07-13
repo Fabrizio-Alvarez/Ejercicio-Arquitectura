@@ -20,6 +20,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $perfil = Perfil::tiene() ? Perfil::actual() : null;
+        $usuario = \Illuminate\Support\Facades\Auth::user();
 
         return array_merge(parent::share($request), [
             'perfil' => $perfil === null ? null : [
@@ -27,6 +28,7 @@ class HandleInertiaRequests extends Middleware
                 'etiqueta' => $perfil->etiqueta(),
                 'paginas' => $perfil->paginas(),
             ],
+            'usuario' => $usuario !== null ? ['nombre' => $usuario->name, 'email' => $usuario->email] : null,
         ]);
     }
 }

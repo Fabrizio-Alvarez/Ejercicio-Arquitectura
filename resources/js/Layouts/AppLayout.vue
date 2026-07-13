@@ -1,9 +1,14 @@
 <script setup>
 import { computed } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
 const perfil = computed(() => page.props.perfil);
+const usuario = computed(() => page.props.usuario);
+
+function cerrarSesion() {
+    router.post('/logout');
+}
 </script>
 
 <template>
@@ -20,8 +25,9 @@ const perfil = computed(() => page.props.perfil);
                     >{{ pagina.etiqueta }}</Link>
                 </nav>
                 <div v-if="perfil" class="ml-auto flex items-center gap-3 text-sm">
+                    <span v-if="usuario" class="text-slate-300">{{ usuario.nombre }}</span>
                     <span class="rounded bg-slate-700 px-2 py-0.5">{{ perfil.etiqueta }}</span>
-                    <Link href="/iniciar" class="text-slate-300 hover:text-emerald-300">Cambiar perfil</Link>
+                    <button type="button" @click="cerrarSesion" class="text-slate-300 hover:text-emerald-300">Cerrar sesión</button>
                 </div>
             </div>
         </header>

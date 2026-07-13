@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Web;
 use App\Facades\Perfil;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Supermercado\Application\Stock\ListarAlertas;
 use Supermercado\Application\Stock\ListarMovimientos;
 use Supermercado\Application\Stock\ListarStock;
 use Supermercado\Domain\Catalogo\ProductoRepository;
@@ -52,34 +54,43 @@ final class PaginaWebController extends Controller
             'stockDeposito' => $stock->execute(),
         ]);
     }
-    public function iniciar(): Response
+    public function alertas(ListarAlertas $listar): Response
     {
-        return Inertia::render('Perfiles/Iniciar', [
-            'perfiles' => array_map(
-                static fn ($p) => [
-                    'value' => $p->value,
-                    'etiqueta' => $p->etiqueta(),
-                    'descripcion' => $p->descripcion(),
-                ],
-                Perfil::todos(),
-            ),
+        return Inertia::render('Alertas', [
+            'alertas' => $listar->execute(),
         ]);
     }
-
-    public function establecerPerfil(Request $request)
+    public function cierre(): Response
     {
-        $validos = implode(',', array_map(static fn ($p) => $p->value, Perfil::todos()));
-        $data = $request->validate(['perfil' => "required|in:{$validos}"]);
+        return Inertia::render('Cierre');
+    }
+    public function login(): Response
+    {
+        return Inertia::render('Perfiles/Login');
+    }
 
-        Perfil::establecerPorValor($data['perfil']);
+    public function autenticar(Request $request)
+    {
+        $credenciales = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        if (! Auth::attempt($credenciales, $request->boolean('remember'))) {
+            return back()->withErrors([
+                'email' => 'Las credenciales no coinciden con nuestros registros.',
+            ])->onlyInput('email');
+        }
+
+        $request->session()->regenerate();
 
         return redirect()->route(Perfil::actual()->paginas()[0]['ruta']);
     }
 
-    public function salir()
+    public function cerrarSesion(Request $request)
     {
         Perfil::limpiar();
 
-        return redirect()->route('iniciar');
+        return redirect()->route('login');
     }
 }

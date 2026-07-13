@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Gatea las vistas del frontend por perfil:
- *  - sin perfil seleccionado → redirige al selector (/iniciar);
+ *  - sin sesión → redirige al login (/login);
  *  - ruta no permitida para el perfil actual → redirige al home de ese perfil.
  *
  * La raíz ('inicio') siempre se permite: es un mero redirect al home del perfil.
@@ -19,7 +19,7 @@ class RequierePerfil
     public function handle(Request $request, Closure $next): Response
     {
         if (! Perfil::tiene()) {
-            return redirect()->route('iniciar');
+            return redirect()->route('login');
         }
 
         $perfil = Perfil::actual();

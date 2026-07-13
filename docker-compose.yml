@@ -1,5 +1,5 @@
 services:
-  # Local dev container. Run composer/artisan/pest through it, e.g.:
+  # Local dev container (SQLite). Run composer/artisan/pest through it, e.g.:
   #   docker compose run --rm app composer install
   #   docker compose run --rm app php vendor/bin/pest
   app:
@@ -8,3 +8,38 @@ services:
     volumes:
       - .:/var/www/html
     command: ["tail", "-f", "/dev/null"]
+
+  # --- Perfil Postgres (opt-in) -------------------------------------------
+  # Levanta un Postgres 16 y un container con ambos drivers (pdo_sqlite +
+  # pdo_pgsql) para correr la app contra Postgres. Uso:
+  #   docker compose --profile postgres run --rm app-pg composer install
+  #   docker compose --profile postgres run --rm app-pg php artisan migrate --seed
+  #   docker compose --profile postgres run --rm app-pg php vendor/bin/pest
+  # En .env setear: DB_CONNECTION=pgsql DB_HOST=postgres DB_PORT=5432
+  #   DB_DATABASE=supermercado DB_USERNAME=supermercado DB_PASSWORD=secret
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: supermercado
+      POSTGRES_USER: supermercado
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app-pg:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    profiles: ["postgres"]
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - postgres
+    command: ["tail", "-f", "/dev/null"]
+
+volumes:
+  pgdata:
