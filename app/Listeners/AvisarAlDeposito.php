@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use Illuminate\Support\Str;
+use Supermercado\Domain\Comun\Clock;
 use Supermercado\Domain\Stock\MovimientoDeStock;
 use Supermercado\Domain\Stock\MovimientoDeStockRepository;
 use Supermercado\Domain\Stock\TipoDeMovimiento;
@@ -18,7 +19,7 @@ use Supermercado\Domain\Ventas\CompraRealizada;
  */
 final class AvisarAlDeposito
 {
-    public function __construct(private readonly MovimientoDeStockRepository $movimientos) {}
+    public function __construct(private readonly MovimientoDeStockRepository $movimientos, private readonly Clock $clock) {}
 
     public function handle(CompraRealizada $event): void
     {
@@ -29,7 +30,7 @@ final class AvisarAlDeposito
                 tipo: TipoDeMovimiento::Venta,
                 cantidad: $linea->quantity(),
                 ubicacion: UbicacionDeStock::Gondola,
-                fecha: new \DateTimeImmutable('now'),
+                fecha: $this->clock->now(),
                 referencia: $event->ventaId,
             ));
         }

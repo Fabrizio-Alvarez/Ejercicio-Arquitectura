@@ -102,6 +102,8 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 - **RegistrarReposicion**: aplica la reposición y, si el depósito cae bajo 150, **despacha** `AlertaDeStock` de depósito (antes sólo la devolvía como valor).
 - **Repositor**: servicio sin identidad que repone la góndola desde el depósito al recibir la alerta de góndola.
 - **RegistrarAlerta**: persiste cada `AlertaDeStock` (de góndola al vender y de depósito al reponer) — el spec exige *"incluidas las alertas de stock"*.
+- **RegistrarReabastecimiento**: resuelve la alerta de depósito — el depositista recibe stock del proveedor (`Deposito::receive`), sube el nivel y deja huella (`MovimientoDeStock` tipo `Reabastecimiento`). Invocación manual (API `POST /api/restock`, CLI `stock:restock` o vista `/alertas`), a diferencia de la reposición automática del `Repositor`.
+- **Clock**: puerto `Domain\Comun\Clock` (`now(): \DateTimeImmutable`) inyectado en use cases y listeners. `SystemClock` en producción; `FixedClock` en tests (determinista, sin `sleep`).
 
 ## Auth: login + roles reales
 
@@ -111,6 +113,12 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 - `/login` (GET form + POST `Auth::attempt`) y `/logout` (POST). Middleware `RequierePerfil` (alias `perfil`) gatea: sin sesión → /login; ruta no permitida para el rol → su home.
 - `HandleInertiaRequests` comparte `perfil` y `usuario` a todas las páginas; `AppLayout` pinta nav + nombre + rol + botón **Cerrar sesión**.
 - Seeder crea 3 users demo: `cajero@`/`depositista@`/`repositor@supermercado.test`, password `password`.
+
+## API auth (Sanctum)
+
+- `POST /api/tokens` valida email+password y emite un token Bearer. El token hereda el rol del usuario.
+- Todos los endpoints `/api/*` están bajo `auth:sanctum` + middleware `rol:X` (alias registrado en `bootstrap/app.php`): `checkout`/`cash-close` → **cajero**, `stock`/`replenish` → **repositor**, `restock` → **depositista`.
+- El frontend SPA (Inertia) se autentica vía sesión stateful (cookie del login web); clientes externos usan `Authorization: Bearer <token>`. 401 sin auth, 403 con rol incorrecto.
 
 ## Perfiles y sus vistas
 
@@ -126,6 +134,7 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 4. Listado de stock → `ListarStock`.
 5. Reposición → `RegistrarReposicion` + `PoliticaDeReposicion` (<30 → 50, capped por depósito).
 6. Alerta de stock → `AlertaDeStock` **persistida** (`AlertaDeStockRepository` + listener `RegistrarAlerta`): góndola <30 al vender y depósito <150 al reponer. Vista `/alertas`.
+7. Reabastecimiento del depósito → `RegistrarReabastecimiento` (resuelve alertas de depósito: recibe stock del proveedor, sube el nivel, registra `MovimientoDeStock` tipo `Reabastecimiento`). API `POST /api/restock`, CLI `stock:restock`, botón en la vista `/alertas`.
 
 ## Adaptador JSON (frontera hexagonal honesta)
 

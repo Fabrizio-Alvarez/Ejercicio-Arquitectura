@@ -97,16 +97,20 @@ flowchart LR
 
 ## API REST
 
-| Método | Ruta | Body / Query |
-|--------|------|--------------|
-| `POST` | `/api/checkout` | `{saleId, cashierId, customerName, paymentMethod, items:[{productId,quantity}]}` → 201, venta + total |
-| `GET`  | `/api/stock` | → stock por producto (góndola + depósito + flags de bajo) |
-| `POST` | `/api/replenish/{productId}` | → resultado de reposición + alerta |
-| `GET`  | `/api/cash-close` | `?cashierId=&date=` → cierre de caja del día |
+| Método | Ruta | Rol | Body / Query |
+|--------|------|-----|--------------|
+| `POST` | `/api/tokens` | — | `{email, password}` → token Bearer (login API) |
+| `POST` | `/api/checkout` | cajero | `{saleId, cashierId, customerName, paymentMethod, items}` → 201, venta + total |
+| `GET`  | `/api/cash-close` | cajero | `?cashierId=&date=` → cierre de caja del día |
+| `GET`  | `/api/stock` | repositor | → stock por producto (góndola + depósito + flags de bajo) |
+| `POST` | `/api/replenish/{productId}` | repositor | → resultado de reposición + alerta |
+| `POST` | `/api/restock/{productId}` | depositista | `{quantity, proveedor?}` → nivel del depósito tras reabastecer |
+
+Todos los endpoints (salvo `/api/tokens`) requieren `auth:sanctum` + el rol indicado (middleware `rol`). 401 sin autenticación, 403 con rol incorrecto.
 
 `paymentMethod` ∈ `efectivo · tarjeta_credito · tarjeta_debito · transferencia · qr`.
 
-CLI del repositor: `php artisan stock:replenish {productId}`
+CLI: `php artisan stock:replenish {productId}` (repositor) · `php artisan stock:restock {productId} {cantidad} {--proveedor=}` (depositista).
 
 ---
 

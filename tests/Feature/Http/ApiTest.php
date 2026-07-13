@@ -16,6 +16,7 @@ use Supermercado\Infrastructure\Persistence\OfertaModel;
 uses(RefreshDatabase::class);
 
 it('checks out products with the active offer via POST /api/checkout', function () {
+    $this->actingAs(cajero());
     app(ProductoRepository::class)->save(new Producto('p-1', 'Milk', new Dinero(1000, 'ARS')));
     OfertaModel::create([
         'product_id' => 'p-1',
@@ -39,10 +40,13 @@ it('checks out products with the active offer via POST /api/checkout', function 
 });
 
 it('rejects an invalid checkout payload with 422', function () {
+    $this->actingAs(cajero());
+
     $this->postJson('/api/checkout', [])->assertStatus(422);
 });
 
 it('lists stock via GET /api/stock', function () {
+    $this->actingAs(repositor());
     app(GondolaRepository::class)->save(new Gondola('p-1', 45));
     app(DepositoRepository::class)->save(new Deposito('p-1', 500));
 
@@ -54,6 +58,7 @@ it('lists stock via GET /api/stock', function () {
 });
 
 it('replenishes a low shelf via POST /api/replenish/{productId}', function () {
+    $this->actingAs(repositor());
     app(GondolaRepository::class)->save(new Gondola('p-1', 20));
     app(DepositoRepository::class)->save(new Deposito('p-1', 500));
 
@@ -64,6 +69,7 @@ it('replenishes a low shelf via POST /api/replenish/{productId}', function () {
 });
 
 it('returns the cash close via GET /api/cash-close', function () {
+    $this->actingAs(cajero());
     $sale = new Venta('s-1', 'cashier-1', 'Jane', new \DateTimeImmutable('2026-01-15 10:00:00'));
     $sale->addLine(new LineaDeVenta('p-1', 'Milk', 1, new Dinero(450, 'ARS')));
     $sale->confirm();

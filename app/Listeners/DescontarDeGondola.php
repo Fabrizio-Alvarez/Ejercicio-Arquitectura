@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use Illuminate\Support\Facades\Event;
 use Supermercado\Domain\Stock\AlertaDeStock;
+use Supermercado\Domain\Comun\Clock;
 use Supermercado\Domain\Stock\GondolaRepository;
 use Supermercado\Domain\Stock\UbicacionDeStock;
 use Supermercado\Domain\Ventas\CompraRealizada;
@@ -15,7 +16,7 @@ use Supermercado\Domain\Ventas\CompraRealizada;
  */
 final class DescontarDeGondola
 {
-    public function __construct(private readonly GondolaRepository $gondolas) {}
+    public function __construct(private readonly GondolaRepository $gondolas, private readonly Clock $clock) {}
 
     public function handle(CompraRealizada $event): void
     {
@@ -35,7 +36,7 @@ final class DescontarDeGondola
                     $linea->productId(),
                     UbicacionDeStock::Gondola,
                     $gondola->quantity(),
-                    new \DateTimeImmutable('now'),
+                    $this->clock->now(),
                 ));
             }
         }

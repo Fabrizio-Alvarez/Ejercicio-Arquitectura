@@ -12,4 +12,5 @@ enum TipoDeMovimiento: string
     case Venta = 'venta';
     case Reposicion = 'reposicion';
     case Ajuste = 'ajuste';
+    case Reabastecimiento = 'reabastecimiento';
 }

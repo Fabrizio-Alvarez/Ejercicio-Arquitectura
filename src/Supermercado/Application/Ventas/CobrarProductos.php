@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Event;
 use Supermercado\Domain\Catalogo\OfertaRepository;
 use Supermercado\Domain\Catalogo\Ofertas;
 use Supermercado\Domain\Catalogo\ProductoRepository;
+use Supermercado\Domain\Comun\Clock;
 use Supermercado\Domain\Ventas\Cotizador;
 use Supermercado\Domain\Ventas\Venta;
 use Supermercado\Domain\Ventas\VentaRepository;
@@ -28,11 +29,12 @@ final class CobrarProductos
         private readonly OfertaRepository $offers,
         private readonly VentaRepository $sales,
         private readonly Cotizador $pricer,
+        private readonly Clock $clock,
     ) {}
 
     public function execute(CobrarRequest $request): Venta
     {
-        $now = new \DateTimeImmutable('now');
+        $now = $this->clock->now();
 
         $sale = new Venta($request->saleId, $request->cashierId, $request->customerName, $now, $request->metodoDePago);
 

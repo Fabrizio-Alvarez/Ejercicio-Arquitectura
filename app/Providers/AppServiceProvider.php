@@ -11,6 +11,7 @@ use Supermercado\Domain\Stock\MovimientoDeStockRepository;
 use Supermercado\Domain\Catalogo\OfertaRepository;
 use Supermercado\Domain\Catalogo\ProductoRepository;
 use Supermercado\Domain\Ventas\VentaRepository;
+use Supermercado\Domain\Comun\Clock;
 use Supermercado\Infrastructure\Persistence\EloquentAlertaDeStockRepository;
 use Supermercado\Infrastructure\Persistence\EloquentDepositoRepository;
 use Supermercado\Infrastructure\Persistence\EloquentGondolaRepository;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DepositoRepository::class, $json ? JsonDepositoRepository::class : EloquentDepositoRepository::class);
         $this->app->bind(MovimientoDeStockRepository::class, $json ? JsonMovimientoDeStockRepository::class : EloquentMovimientoDeStockRepository::class);
         $this->app->bind(AlertaDeStockRepository::class, $json ? JsonAlertaDeStockRepository::class : EloquentAlertaDeStockRepository::class);
+        $this->app->singleton(\Supermercado\Domain\Comun\Clock::class, \Supermercado\Infrastructure\SystemClock::class);
 
         $this->app->singleton('sesion.de.perfil', fn ($app) => new SesionDePerfil($app->make('session.store')));
     }

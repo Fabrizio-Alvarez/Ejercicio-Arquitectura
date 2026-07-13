@@ -6,6 +6,7 @@ namespace Supermercado\Application\Stock;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+use Supermercado\Domain\Comun\Clock;
 use Supermercado\Domain\Stock\UbicacionDeStock;
 use Supermercado\Domain\Stock\PoliticaDeReposicion;
 use Supermercado\Domain\Stock\GondolaRepository;
@@ -30,6 +31,7 @@ final class RegistrarReposicion
         private readonly DepositoRepository $warehouses,
         private readonly PoliticaDeReposicion $policy,
         private readonly MovimientoDeStockRepository $movimientos,
+        private readonly Clock $clock,
     ) {}
 
     public function execute(string $productId): ResultadoDeReposicion
@@ -57,12 +59,12 @@ final class RegistrarReposicion
                 tipo: TipoDeMovimiento::Reposicion,
                 cantidad: $result->quantityToMove(),
                 ubicacion: UbicacionDeStock::Gondola,
-                fecha: new \DateTimeImmutable('now'),
+                fecha: $this->clock->now(),
             ));
         }
 
         $alert = $result->emitsAlert()
-            ? new AlertaDeStock($productId, UbicacionDeStock::Deposito, $warehouse->quantity(), new \DateTimeImmutable('now'))
+            ? new AlertaDeStock($productId, UbicacionDeStock::Deposito, $warehouse->quantity(), $this->clock->now())
             : null;
         if ($alert !== null) {
             Event::dispatch($alert);

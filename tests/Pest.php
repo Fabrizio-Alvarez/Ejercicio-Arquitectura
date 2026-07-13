@@ -46,3 +46,11 @@ function repositor(): \App\Models\User
         ['name' => 'Repo', 'password' => 'secret', 'rol' => 'repositor'],
     );
 }
+
+function fijarReloj(string $datetime = '2026-01-15T10:00:00+00:00'): void
+{
+    app()->bind(
+        \Supermercado\Domain\Comun\Clock::class,
+        fn () => new \Supermercado\Infrastructure\FixedClock(new \DateTimeImmutable($datetime)),
+    );
+}

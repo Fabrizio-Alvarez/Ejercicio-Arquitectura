@@ -75,4 +75,16 @@ final class Deposito
 
         $this->quantity -= $amount;
     }
+
+    /**
+     * Recibe stock del proveedor (reabastecimiento del depósito).
+     */
+    public function receive(int $amount): void
+    {
+        if ($amount < 0) {
+            throw new \InvalidArgumentException('Deposito receive amount cannot be negative.');
+        }
+
+        $this->quantity += $amount;
+    }
 }
