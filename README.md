@@ -161,14 +161,20 @@ npm install
 npm run build   # o npm run dev para HMR
 ```
 
-Storage configurable: **SQLite** (default) o **Postgres** (`--profile postgres`, `DB_CONNECTION=pgsql`); además, un **adapter JSON en disco** (`SUPERMERCADO_PERSISTENCE=json`) cumple el spec no funcional de "archivos de texto plano" sin tocar el dominio. Imagen de producción vía `Dockerfile` (single container, `php artisan migrate --seed`, lee `PORT`; `pdo_sqlite` + `pdo_pgsql`).
+Storage configurable: **SQLite** (default) o **Postgres 16** (`--profile postgres`; el environment del `app-pg` overridea `.env` automáticamente); además, un **adapter JSON en disco** (`SUPERMERCADO_PERSISTENCE=json`) cumple el spec no funcional de "archivos de texto plano" sin tocar el dominio. **Los 217 tests corren verdes en ambos motores** (SQLite y Postgres) sin una línea del dominio cambiada. Imagen de producción vía `Dockerfile` (single container, `php artisan migrate --seed`, lee `PORT`; `pdo_sqlite` + `pdo_pgsql`).
 
 ---
 
 ## Cómo testear
 
 ```bash
-docker compose run --rm app php vendor/bin/pest
+# SQLite (default):
+docker compose up -d app
+docker exec ejercicio-arquitectura-app-1 php vendor/bin/pest
+
+# Postgres (perfil opt-in):
+docker compose --profile postgres up -d postgres app-pg
+docker compose --profile postgres exec app-pg php vendor/bin/pest --configuration=phpunit.pgsql.xml
 ```
 
 Pirámide de tests:

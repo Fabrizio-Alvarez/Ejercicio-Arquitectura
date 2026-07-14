@@ -13,7 +13,7 @@ Todo el código de dominio/aplicación está **en español** (clases, namespaces
 ## Stack y versiones
 
 - Laravel **13** · PHP **8.4** (obligatorio) · Pest · Inertia.js 3 · Vue 3 · Vite 8 · Tailwind 4 · Docker · GitHub Actions.
-- DB: **SQLite** (dev + tests `:memory:`). **Postgres** declarado para deploy (perfil `docker compose --profile postgres`). **JSON en disco** como adapter alternativo (cumple el spec no funcional de "archivos de texto plano").
+- DB: **SQLite** (dev + tests `:memory:`). **Postgres 16** validado end-to-end (migraciones + seed + 217 tests verdes — sin una línea del dominio tocada). **JSON en disco** como adapter alternativo (cumple el spec no funcional de "archivos de texto plano").
 - Auth: **login web real** (users + roles mapeados a perfiles). Sanctum instalado para API.
 
 ## Arquitectura (capas, dependencia siempre hacia adentro)
@@ -162,17 +162,18 @@ POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
 docker() { "C:\Program Files\Docker\Docker\resources\bin\docker.exe" "$@"; }
 
 # SQLite (default):
-docker compose run --rm app php vendor/bin/pest
-docker compose run --rm app php artisan migrate:fresh --seed
+docker compose up -d app
+docker exec ejercicio-arquitectura-app-1 php vendor/bin/pest
+docker exec ejercicio-arquitectura-app-1 php artisan migrate:fresh --seed
 
-# Postgres (perfil opt-in):
-docker compose --profile postgres run --rm app-pg composer install
-docker compose --profile postgres run --rm app-pg php artisan migrate --seed
-#  (en .env: DB_CONNECTION=pgsql DB_HOST=postgres ...)
+# Postgres (perfil opt-in; el environment del app-pg overridea .env automáticamente):
+docker compose --profile postgres up -d postgres app-pg
+docker compose --profile postgres exec app-pg php artisan migrate:fresh --seed
+# Tests contra Postgres (usa phpunit.pgsql.xml + DB supermercado_testing):
+docker compose --profile postgres exec app-pg php vendor/bin/pest --configuration=phpunit.pgsql.xml
 
 # Sobre JSON (cambia el origen a archivos de texto plano):
 SUPERMERCADO_PERSISTENCE=json docker compose run --rm app php artisan migrate:fresh --seed
-```
 - **Tests:** `vendor/bin/pest`. Unit (dominio puro) + Feature (persistencia/app/HTTP/eventos/web/auth/JSON-adapters).
 - **Frontend:** `npm install && npm run build` (nativo; Node 24). Dev: `npm run dev` (Vite) + `php artisan serve`.
 - **Deploy:** `Dockerfile` (single container, `php artisan migrate --seed` + `php artisan serve`, lee `PORT`). Incluye `pdo_sqlite` + `pdo_pgsql`. Seed demo en `database/seeders/DatabaseSeeder.php`.
@@ -191,5 +192,5 @@ SUPERMERCADO_PERSISTENCE=json docker compose run --rm app php artisan migrate:fr
 
 ## Estado
 
-- ✅ Dominio + Infrastructure (Eloquent **+ Json**) + Application + Presentation (API + Web/Inertia) + Eventos + **alertas persistidas** + **login + roles reales** + Vue + Dockerfile + Dockerfile.dev (Postgres) + CI + seeder + README. **+ Catálogo CRUD + Ajustes manuales + Log de auditoría + Reportes históricos + Alertas configurables** (217 tests, 520 assertions).
-- 🔜 Futuro: SSR de Inertia, portear los feature tests a Postgres, más tests de edge cases.
+- ✅ Dominio + Infrastructure (Eloquent **+ Json**) + Application + Presentation (API + Web/Inertia) + Eventos + **alertas persistidas** + **login + roles reales** + Vue + Dockerfile + Dockerfile.dev (Postgres) + CI + seeder + README. **+ Catálogo CRUD + Ajustes manuales + Log de auditoría + Reportes históricos + Alertas configurables** (217 tests, 520 assertions). **Postgres 16 validado**: las 12 migraciones + seeder + los 217 tests corren verdes contra Postgres sin tocar el dominio — la frontera hexagonal es real.
+- 🔜 Futuro: SSR de Inertia, más tests de edge cases.

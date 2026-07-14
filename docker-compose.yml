@@ -11,12 +11,11 @@ services:
 
   # --- Perfil Postgres (opt-in) -------------------------------------------
   # Levanta un Postgres 16 y un container con ambos drivers (pdo_sqlite +
-  # pdo_pgsql) para correr la app contra Postgres. Uso:
-  #   docker compose --profile postgres run --rm app-pg composer install
-  #   docker compose --profile postgres run --rm app-pg php artisan migrate --seed
-  #   docker compose --profile postgres run --rm app-pg php vendor/bin/pest
-  # En .env setear: DB_CONNECTION=pgsql DB_HOST=postgres DB_PORT=5432
-  #   DB_DATABASE=supermercado DB_USERNAME=supermercado DB_PASSWORD=secret
+  # pdo_pgsql) para correr la app contra Postgres. El environment del
+  # app-pg overridea .env automáticamente — no hace falta editar .env.
+  #   docker compose --profile postgres up -d postgres app-pg
+  #   docker compose --profile postgres exec app-pg php artisan migrate:fresh --seed
+  #   docker compose --profile postgres exec app-pg php vendor/bin/pest
   postgres:
     image: postgres:16-alpine
     profiles: ["postgres"]
@@ -39,6 +38,13 @@ services:
       - .:/var/www/html
     depends_on:
       - postgres
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: supermercado
+      DB_USERNAME: supermercado
+      DB_PASSWORD: secret
     command: ["tail", "-f", "/dev/null"]
 
 volumes:
