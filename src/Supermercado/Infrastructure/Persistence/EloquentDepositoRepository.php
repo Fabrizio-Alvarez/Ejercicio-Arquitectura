@@ -20,7 +20,7 @@ final class EloquentDepositoRepository implements DepositoRepository
     {
         DepositoModel::updateOrCreate(
             ['product_id' => $warehouse->productId()],
-            ['quantity' => $warehouse->quantity()],
+            ['quantity' => $warehouse->quantity(), 'umbral_bajo' => $warehouse->umbralBajo()],
         );
     }
 
@@ -33,6 +33,6 @@ final class EloquentDepositoRepository implements DepositoRepository
 
     private function toDomain(DepositoModel $row): Deposito
     {
-        return new Deposito((string) $row->product_id, (int) $row->quantity);
+        return new Deposito((string) $row->product_id, (int) $row->quantity, (int) ($row->umbral_bajo ?? Deposito::UMBRAL_BAJO));
     }
 }

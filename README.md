@@ -49,9 +49,10 @@ flowchart TD
 - **Dominio** no sabe nada de Laravel, la DB ni HTTP. Sigue un **modelo rico**: la lógica vive en
   las entidades, no en servicios anémicos. Un `Dinero` no mezcla monedas y sabe sumarse
   (`Dinero::sum`); una `Venta` no se confirma vacía ni se edita tras confirmarse, y expone sus reglas
-  (`isConfirmed`, `isForCashier`, `isOnDay`); `Gondola`/`Deposito` son dueñas de su umbral de stock
-  bajo y de sus operaciones (`gapTo`, `maxAvailableFor`, `wouldBeLowAfter`). La regla de reposición
-  (<30 → llenar a 50, alerta si depósito <150) es un orquestador delgado (`PoliticaDeReposicion`)
+(`isConfirmed`, `isForCashier`, `isOnDay`); `Gondola`/`Deposito` son dueñas de su umbral de stock
+bajo (**configurable por producto**, default 30/150, vía `configurarUmbral()`) y de sus operaciones
+(`gapTo`, `maxAvailableFor`, `wouldBeLowAfter`). La regla de reposición (<umbral → llenar a 50,
+alerta si depósito <umbral) es un orquestador delgado (`PoliticaDeReposicion`)
   que **le pregunta** a esas entidades (Tell, Don't Ask).
 - **Aplicación** orquesta los casos de uso contra **puertos de repositorio**
   (interfaces definidas en el dominio) y **despacha los eventos de dominio**.
@@ -98,6 +99,7 @@ flowchart LR
 | 10 | Ajuste manual de stock (góndola/depósito) | `RegistrarAjuste` |
 | 11 | Log de auditoría (event sourcing ligero) | `RegistrarEventoDeDominio` + `ListarEventos` |
 | 12 | Reportes históricos (ventas + movimientos) | `ObtenerReporteVentas` · `ObtenerReporteMovimientos` |
+| 13 | Alertas de stock configurables por producto | `ConfigurarUmbrales` · `Gondola/Deposito.configurarUmbral()` |
 ---
 
 ## API REST
@@ -117,6 +119,7 @@ flowchart LR
 | `POST` | `/api/offers` | depositista | `{productoId, porcentaje, validoDesde, validoHasta}` → 201 |
 | `DELETE` | `/api/offers/{id}` | depositista | → 200 |
 | `POST` | `/api/adjust/{productId}` | depositista | `{ubicacion, delta, motivo?}` → 200 |
+| `PUT`  | `/api/threshold/{productId}` | depositista | `{umbral_gondola?, umbral_deposito?}` → 200 |
 
 Todos los endpoints (salvo `/api/tokens`) requieren `auth:sanctum` + el rol indicado (middleware `rol`). 401 sin autenticación, 403 con rol incorrecto.
 
@@ -137,7 +140,7 @@ CLI: `php artisan stock:replenish {productId}` (repositor) · `php artisan stock
 | `/movimientos` | Depositista | `Movimientos.vue` | Auditoría de movimientos del depósito |
 | `/alertas` | Depositista | `Alertas.vue` | Historial de alertas de stock bajo persistidas |
 | `/stock` | Repositor | `Stock.vue` | Stock por producto con flags de góndola/depósito bajo |
-| `/catalogo` | Depositista | `Catalogo.vue` | CRUD de productos + ofertas → `POST/PUT/DELETE /api/products` |
+| `/catalogo` | Depositista | `Catalogo.vue` | CRUD de productos + ofertas + configuración de umbrales de alerta |
 | `/auditoria` | Depositista | `Auditoria.vue` | Log de auditoría: eventos de dominio persistidos |
 | `/reportes` | Cajero, Depositista | `Reportes.vue` | Histórico de ventas y movimientos con gráficos CSS |
 

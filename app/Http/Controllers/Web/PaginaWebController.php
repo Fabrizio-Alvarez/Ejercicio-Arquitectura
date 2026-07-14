@@ -15,6 +15,8 @@ use Supermercado\Application\Stock\ListarAlertas;
 use Supermercado\Application\Stock\ListarMovimientos;
 use Supermercado\Application\Stock\ListarStock;
 use Supermercado\Domain\Catalogo\ProductoRepository;
+use Supermercado\Domain\Stock\DepositoRepository;
+use Supermercado\Domain\Stock\GondolaRepository;
 use Supermercado\Domain\Ventas\MetodoDePago;
 use Supermercado\Application\Tableros\ObtenerTableroCajero;
 use Supermercado\Application\Tableros\ObtenerTableroDepositista;
@@ -86,8 +88,11 @@ final class PaginaWebController extends Controller
         return Inertia::render('Tablero', $datos);
     }
 
-    public function catalogo(ProductoRepository $productos): Response
-    {
+    public function catalogo(
+        ProductoRepository $productos,
+        GondolaRepository $gondolas,
+        DepositoRepository $depositos,
+    ): Response {
         $ofertas = OfertaModel::all()->map(static fn ($o) => [
             'id' => $o->id,
             'productoId' => $o->product_id,
@@ -96,12 +101,23 @@ final class PaginaWebController extends Controller
             'validoHasta' => $o->valid_to->format('Y-m-d H:i:s'),
         ]);
 
+        $umbralesGondola = [];
+        foreach ($gondolas->all() as $g) {
+            $umbralesGondola[$g->productId()] = $g->umbralBajo();
+        }
+        $umbralesDeposito = [];
+        foreach ($depositos->all() as $d) {
+            $umbralesDeposito[$d->productId()] = $d->umbralBajo();
+        }
+
         return Inertia::render('Catalogo', [
             'productos' => array_map(static fn ($p) => [
                 'id' => $p->id(),
                 'nombre' => $p->name(),
                 'precio' => $p->price()->amount() / 100,
                 'moneda' => $p->price()->currency(),
+                'umbralGondola' => $umbralesGondola[$p->id()] ?? null,
+                'umbralDeposito' => $umbralesDeposito[$p->id()] ?? null,
             ], $productos->all()),
             'ofertas' => $ofertas,
         ]);

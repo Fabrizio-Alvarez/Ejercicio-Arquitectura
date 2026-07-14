@@ -18,5 +18,5 @@ final class DepositoModel extends Model
 
     protected $primaryKey = 'product_id';
 
-    protected $fillable = ['product_id', 'quantity'];
+    protected $fillable = ['product_id', 'quantity', 'umbral_bajo'];
 }

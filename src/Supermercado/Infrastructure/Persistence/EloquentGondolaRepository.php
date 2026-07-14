@@ -20,7 +20,7 @@ final class EloquentGondolaRepository implements GondolaRepository
     {
         GondolaModel::updateOrCreate(
             ['product_id' => $shelf->productId()],
-            ['quantity' => $shelf->quantity()],
+            ['quantity' => $shelf->quantity(), 'umbral_bajo' => $shelf->umbralBajo()],
         );
     }
 
@@ -33,6 +33,6 @@ final class EloquentGondolaRepository implements GondolaRepository
 
     private function toDomain(GondolaModel $row): Gondola
     {
-        return new Gondola((string) $row->product_id, (int) $row->quantity);
+        return new Gondola((string) $row->product_id, (int) $row->quantity, (int) ($row->umbral_bajo ?? Gondola::UMBRAL_BAJO));
     }
 }

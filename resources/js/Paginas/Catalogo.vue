@@ -79,6 +79,22 @@ async function eliminarOferta(id) {
   router.reload({ only: ['ofertas'] });
 }
 
+const formUmbrales = reactive({ productoId: '', umbralGondola: 30, umbralDeposito: 150 });
+
+async function guardarUmbrales() {
+  if (!formUmbrales.productoId) return;
+  await fetch(`/api/threshold/${formUmbrales.productoId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify({
+      umbral_gondola: formUmbrales.umbralGondola,
+      umbral_deposito: formUmbrales.umbralDeposito,
+    }),
+  });
+  formUmbrales.productoId = ''; formUmbrales.umbralGondola = 30; formUmbrales.umbralDeposito = 150;
+  router.reload({ only: ['productos'] });
+}
+
 function formato(f) {
   return f ? new Date(f).toLocaleString('es-AR') : '';
 }
@@ -96,6 +112,7 @@ function formato(f) {
             <th class="px-4 py-2">ID</th>
             <th class="px-4 py-2">Nombre</th>
             <th class="px-4 py-2 text-right">Precio</th>
+            <th class="px-4 py-2 text-center">Alertas</th>
             <th class="px-4 py-2"></th>
           </tr>
         </thead>
@@ -112,6 +129,14 @@ function formato(f) {
                 <input v-model.number="editando[p.id].precio" type="number" step="0.01" class="w-24 rounded border border-slate-300 px-2 py-1 text-right" />
                 <input v-model="editando[p.id].moneda" class="w-16 rounded border border-slate-300 px-2 py-1" />
               </div>
+            </td>
+            <td class="px-4 py-3 text-center text-xs">
+              <template v-if="p.umbralGondola !== null || p.umbralDeposito !== null">
+                <span :class="p.umbralGondola !== null ? 'text-amber-600 font-medium' : 'text-slate-300'">G:{{ p.umbralGondola ?? '—' }}</span>
+                <span class="mx-1 text-slate-300">/</span>
+                <span :class="p.umbralDeposito !== null ? 'text-amber-600 font-medium' : 'text-slate-300'">D:{{ p.umbralDeposito ?? '—' }}</span>
+              </template>
+              <span v-else class="text-slate-300">—</span>
             </td>
             <td class="px-4 py-3 text-right whitespace-nowrap">
               <template v-if="!editando[p.id]">
@@ -137,6 +162,29 @@ function formato(f) {
         <input v-model.number="formCrear.precio" type="number" step="0.01" placeholder="Precio" class="w-28 rounded border border-slate-300 px-3 py-2 text-sm" />
         <input v-model="formCrear.moneda" placeholder="ARS" class="w-20 rounded border border-slate-300 px-3 py-2 text-sm" />
         <button type="submit" class="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Crear</button>
+      </form>
+    </div>
+
+    <!-- Configuración de alertas -->
+    <div class="rounded-lg bg-white p-5 shadow-sm">
+      <h3 class="mb-1 text-sm font-semibold text-slate-700">Configuración de alertas de stock</h3>
+      <p class="mb-3 text-xs text-slate-400">Define a partir de qué cantidad se dispara la alerta de stock bajo. Solo aplica a productos con stock rastreado.</p>
+      <form @submit.prevent="guardarUmbrales" class="flex flex-wrap items-end gap-3">
+        <select v-model="formUmbrales.productoId" class="flex-1 rounded border border-slate-300 px-3 py-2 text-sm">
+          <option value="" disabled>Producto…</option>
+          <option v-for="p in productos" :key="p.id" :value="p.id">
+            {{ p.id }} — {{ p.nombre }}{{ (p.umbralGondola !== null || p.umbralDeposito !== null) ? ` (G:${p.umbralGondola ?? '—'} / D:${p.umbralDeposito ?? '—'})` : '' }}
+          </option>
+        </select>
+        <label class="flex flex-col gap-1 text-xs text-slate-500">
+          Umbral góndola
+          <input v-model.number="formUmbrales.umbralGondola" type="number" min="0" class="w-32 rounded border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+        <label class="flex flex-col gap-1 text-xs text-slate-500">
+          Umbral depósito
+          <input v-model.number="formUmbrales.umbralDeposito" type="number" min="0" class="w-32 rounded border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+        <button type="submit" class="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Guardar</button>
       </form>
     </div>
 

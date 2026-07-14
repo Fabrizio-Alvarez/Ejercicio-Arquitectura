@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\AjusteController;
+use App\Http\Controllers\Api\UmbralController;
 use App\Http\Controllers\Api\CierreDeCajaController;
 use App\Http\Controllers\Api\CobroController;
 use App\Http\Controllers\Api\ReabastecimientoController;
@@ -28,4 +29,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/offers', [CatalogoController::class, 'crearOferta'])->middleware('rol:depositista');
     Route::delete('/offers/{id}', [CatalogoController::class, 'eliminarOferta'])->middleware('rol:depositista');
     Route::post('/adjust/{productId}', AjusteController::class)->middleware('rol:depositista');
+    Route::put('/threshold/{productId}', UmbralController::class)->middleware('rol:depositista');
 });

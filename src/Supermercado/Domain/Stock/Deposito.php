@@ -15,9 +15,13 @@ final class Deposito
     public function __construct(
         private readonly string $productId,
         private int $quantity,
+        private int $umbralBajo = self::UMBRAL_BAJO,
     ) {
         if ($quantity < 0) {
             throw new \InvalidArgumentException("Deposito quantity cannot be negative for product {$this->productId}.");
+        }
+        if ($umbralBajo < 0) {
+            throw new \InvalidArgumentException("Umbral bajo cannot be negative for product {$this->productId}.");
         }
     }
 
@@ -33,7 +37,20 @@ final class Deposito
 
     public function isLow(): bool
     {
-        return $this->quantity < self::UMBRAL_BAJO;
+        return $this->quantity < $this->umbralBajo;
+    }
+
+    public function umbralBajo(): int
+    {
+        return $this->umbralBajo;
+    }
+
+    public function configurarUmbral(int $umbral): void
+    {
+        if ($umbral < 0) {
+            throw new \InvalidArgumentException("Umbral bajo cannot be negative for product {$this->productId}.");
+        }
+        $this->umbralBajo = $umbral;
     }
 
     /**
@@ -60,7 +77,7 @@ final class Deposito
             throw new \InvalidArgumentException('La cantidad a extraer no puede ser negativa.');
         }
 
-        return ($this->quantity - $toTake) < self::UMBRAL_BAJO;
+        return ($this->quantity - $toTake) < $this->umbralBajo;
     }
 
     public function take(int $amount): void

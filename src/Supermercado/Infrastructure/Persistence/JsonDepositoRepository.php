@@ -37,6 +37,7 @@ final class JsonDepositoRepository implements DepositoRepository
         $fila = [
             'product_id' => $warehouse->productId(),
             'quantity' => $warehouse->quantity(),
+            'umbral_bajo' => $warehouse->umbralBajo(),
         ];
 
         $filas = $this->leer();
@@ -68,6 +69,6 @@ final class JsonDepositoRepository implements DepositoRepository
     /** @param array<string, mixed> $fila */
     private function aDominio(array $fila): Deposito
     {
-        return new Deposito((string) $fila['product_id'], (int) $fila['quantity']);
+        return new Deposito((string) $fila['product_id'], (int) $fila['quantity'], (int) ($fila['umbral_bajo'] ?? Deposito::UMBRAL_BAJO));
     }
 }
