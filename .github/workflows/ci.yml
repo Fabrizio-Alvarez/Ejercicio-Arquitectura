@@ -1,25 +1,63 @@
-name: tests
+name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
-  tests:
+  sqlite-test:
+    name: Pest (SQLite)
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: pdo_sqlite
-          coverage: none
+      - name: Start app container (SQLite)
+        run: docker compose up -d --build app
+
+      - name: Wait for app container
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T app php --version >/dev/null 2>&1; then
+              echo "app container is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "app container failed to become ready" >&2
+          exit 1
 
       - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: docker compose exec -T app composer install --no-interaction --prefer-dist
 
-      - name: Run Pest
-        run: vendor/bin/pest
+      - name: Run Pest tests (SQLite)
+        run: docker compose exec -T app php vendor/bin/pest
+
+  postgres-test:
+    name: Pest (Postgres)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start Postgres + app-pg containers
+        run: docker compose --profile postgres up -d --build postgres app-pg
+
+      - name: Wait for Postgres
+        run: |
+          docker compose --profile postgres exec -T postgres \
+            sh -c 'until pg_isready -U supermercado -d supermercado; do sleep 1; done'
+
+      - name: Create testing database
+        run: docker compose --profile postgres exec -T postgres psql -U supermercado -c 'CREATE DATABASE supermercado_testing;'
+
+      - name: Install Composer dependencies
+        run: docker compose --profile postgres exec -T app-pg composer install --no-interaction --prefer-dist
+
+      - name: Run migrations
+        run: docker compose --profile postgres exec -T app-pg php artisan migrate:fresh --seed
+
+      - name: Run Pest tests (Postgres)
+        run: docker compose --profile postgres exec -T app-pg php vendor/bin/pest --configuration=phpunit.pgsql.xml

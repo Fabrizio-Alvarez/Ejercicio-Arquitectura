@@ -52,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MovimientoDeStockRepository::class, $json ? JsonMovimientoDeStockRepository::class : EloquentMovimientoDeStockRepository::class);
         $this->app->bind(AlertaDeStockRepository::class, $json ? JsonAlertaDeStockRepository::class : EloquentAlertaDeStockRepository::class);
         $this->app->singleton(\Supermercado\Domain\Comun\Clock::class, \Supermercado\Infrastructure\SystemClock::class);
+        $this->app->singleton(\Supermercado\Domain\Ventas\PaymentGateway::class, \Supermercado\Infrastructure\Payments\AlwaysSucceedsPaymentGateway::class);
 
         $this->app->singleton('sesion.de.perfil', fn ($app) => new SesionDePerfil($app->make('session.store')));
     }

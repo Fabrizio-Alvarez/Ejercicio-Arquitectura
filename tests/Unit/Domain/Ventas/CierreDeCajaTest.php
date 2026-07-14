@@ -11,6 +11,7 @@ function saleFor(string $id, string $cashier, string $customer, string $date, in
     $sale->addLine(new LineaDeVenta('p-1', 'Item', 1, new Dinero($amount, 'ARS')));
 
     if ($confirm) {
+        $sale->marcarEsperandoPago();
         $sale->confirm();
     }
 
@@ -37,6 +38,7 @@ describe('Cash close (cierre de caja)', function () {
     it('ignores sales that are not confirmed (pending or cancelled)', function () {
         $pending = saleFor('s-1', 'c-1', 'Jane', '2026-01-15 10:00:00', 150, confirm: false);
         $cancelled = saleFor('s-2', 'c-1', 'John', '2026-01-15 11:00:00', 300, confirm: false);
+        $cancelled->marcarEsperandoPago();
         $cancelled->cancel();
         $confirmed = saleFor('s-3', 'c-1', 'Jill', '2026-01-15 12:00:00', 200);
 

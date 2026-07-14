@@ -28,7 +28,7 @@ final class DescontarDeGondola
                 continue;
             }
 
-            $gondola->descontar($linea->quantity());
+            $gondola->confirmarReserva($linea->quantity());
             $this->gondolas->save($gondola);
 
             if ($gondola->isLow()) {

@@ -82,6 +82,8 @@ final class Carrito
             );
         }
 
+        $venta->marcarEsperandoPago();
+
         return $venta;
     }
 

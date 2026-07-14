@@ -28,6 +28,7 @@ function crearVentaConfirmada(): Venta
     $venta = new Venta('s-1', 'cashier-1', 'Jane Doe', new \DateTimeImmutable('2026-01-15 10:00:00'));
     $venta->addLine(new LineaDeVenta('p-1', 'Milk', 2, new Dinero(150, 'ARS')));
     $venta->addLine(new LineaDeVenta('p-2', 'Bread', 1, new Dinero(300, 'ARS')));
+    $venta->marcarEsperandoPago();
     $venta->confirm();
 
     return $venta;
@@ -92,6 +93,7 @@ it('all() devuelve todas las ventas persistidas', function () {
     foreach (['s-1', 's-2', 's-3'] as $id) {
         $venta = new Venta($id, 'cashier-1', 'Jane', new \DateTimeImmutable('2026-01-15'));
         $venta->addLine(new LineaDeVenta('p-1', 'Milk', 1, new Dinero(150, 'ARS')));
+        $venta->marcarEsperandoPago();
         $venta->confirm();
         $repo->save($venta);
     }
@@ -114,6 +116,7 @@ it('save de un id existente actualiza la venta (upsert)', function () {
     $actualizada = new Venta('s-1', 'cashier-2', 'John', new \DateTimeImmutable('2026-01-16 12:00:00'));
     $actualizada->addLine(new LineaDeVenta('p-2', 'Bread', 3, new Dinero(200, 'ARS')));
     $actualizada->addLine(new LineaDeVenta('p-3', 'Eggs', 2, new Dinero(100, 'ARS')));
+    $actualizada->marcarEsperandoPago();
     $actualizada->confirm();
     $repo->save($actualizada);
 
@@ -143,6 +146,7 @@ it('persiste correctamente con un método de pago distinto', function () {
         MetodoDePago::TarjetaCredito,
     );
     $venta->addLine(new LineaDeVenta('p-1', 'Milk', 1, new Dinero(150, 'ARS')));
+    $venta->marcarEsperandoPago();
     $venta->confirm();
     $repo->save($venta);
 

@@ -11,7 +11,7 @@ use Supermercado\Domain\Ventas\ItemCarrito;
 use Supermercado\Domain\Ventas\MetodoDePago;
 
 describe('Carrito value object', function () {
-    it('ensambla una venta Pendiente con las líneas cotizadas', function () {
+    it('ensambla una venta EsperandoPago con las líneas cotizadas', function () {
         $pricer = new Cotizador;
         $now = new DateTimeImmutable('2026-01-15');
 
@@ -19,10 +19,9 @@ describe('Carrito value object', function () {
         $carrito = new Carrito([
             new ItemCarrito($producto, 2, new Ofertas),
         ]);
-
         $venta = $carrito->cobrar($pricer, $now, 'v-1', 'c-1', 'Cliente', MetodoDePago::Efectivo);
 
-        expect($venta->status())->toBe(EstadoDeVenta::Pendiente)
+        expect($venta->status())->toBe(EstadoDeVenta::EsperandoPago)
             ->and($venta->lineCount())->toBe(1)
             ->and($venta->itemCount())->toBe(2)
             ->and($venta->total())->toEqual(new Dinero(2000, 'ARS'));

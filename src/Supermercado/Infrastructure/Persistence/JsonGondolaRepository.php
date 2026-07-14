@@ -38,6 +38,7 @@ final class JsonGondolaRepository implements GondolaRepository
             'product_id' => $shelf->productId(),
             'quantity' => $shelf->quantity(),
             'umbral_bajo' => $shelf->umbralBajo(),
+            'reservado' => $shelf->reservado(),
         ];
 
         $filas = $this->leer();
@@ -69,6 +70,6 @@ final class JsonGondolaRepository implements GondolaRepository
     /** @param array<string, mixed> $fila */
     private function aDominio(array $fila): Gondola
     {
-        return new Gondola((string) $fila['product_id'], (int) $fila['quantity'], (int) ($fila['umbral_bajo'] ?? Gondola::UMBRAL_BAJO));
+        return new Gondola((string) $fila['product_id'], (int) $fila['quantity'], (int) ($fila['umbral_bajo'] ?? Gondola::UMBRAL_BAJO), (int) ($fila['reservado'] ?? 0));
     }
 }

@@ -22,21 +22,31 @@ Todo el código de dominio/aplicación está **en español** (clases, namespaces
 src/Supermercado/
   Domain/            # PURO PHP, sin Laravel. Tests unitarios sin DB.
     Catalogo/ Producto, Oferta, Ofertas (colección first-class), ProductoRepository (port, +delete), OfertaRepository (port, +save)
-    Ventas/   Venta (aggregate: state machine + predicados isConfirmed/isForCashier/isOnDay +
-              counts lineCount/itemCount), LineaDeVenta, EstadoDeVenta,
+    Ventas/   Venta (aggregate: state machine Pendiente→EsperandoPago→Confirmada|Cancelada +
+              predicados isConfirmed/isEsperandoPago/isForCashier/isOnDay + counts lineCount/itemCount +
+              registrarDevolucion), LineaDeVenta, EstadoDeVenta (4 valores),
               Cotizador (servicio delgado, delega en Ofertas), CierreDeCaja, ResumenDeVenta,
-              Carrito (VO efímero: ensambla Venta con pricing via Cotizador; agregar/remover/cobrar),
+              Carrito (VO efímero: ensambla Venta EsperandoPago con pricing via Cotizador; agregar/remover/cobrar),
               ItemCarrito (VO: producto resuelto + cantidad + ofertas),
-              VentaRepository, MetodoDePago (enum), CompraRealizada (evento de dominio)
-    Stock/    Gondola (umbralBajo configurable + gapTo + isLow), Deposito (umbralBajo configurable + maxAvailableFor/wouldBeLowAfter + isLow),
+              ItemDevolucion (VO: productoId + cantidad a devolver),
+              VentaRepository, MetodoDePago (enum), CompraRealizada (evento de dominio),
+              DevolucionRegistrada (evento de dominio),
+              PaymentGateway (port: charge(monto, metodo) → ResultadoDePago),
+              ResultadoDePago (VO: exitoso, referencia)
+    Stock/    Gondola (umbralBajo configurable + gapTo + isLow + reservado/disponible/reservar/confirmarReserva/liberarReserva),
+              Deposito (umbralBajo configurable + maxAvailableFor/wouldBeLowAfter + isLow),
               PoliticaDeReposicion (orquestador delgado, TARGET_LEVEL), DecisionDeReposicion (+ none),
-              AlertaDeStock (valor + evento), UbicacionDeStock (enum), TipoDeMovimiento (enum),
+              AlertaDeStock (valor + evento), UbicacionDeStock (enum), TipoDeMovimiento (5 valores: +Devolucion),
               MovimientoDeStock (auditoría), MovimientoDeStockRepository (port),
               AlertaDeStockRepository (port, persiste las alertas),
               GondolaRepository (port), DepositoRepository (port)
     Comun/    Dinero (VO, integer cents, +sum), MonedaDistintaException
   Application/       # Casos de uso (orquestan dominio + puertos)
-    Ventas/   CobrarProductos (resuelve productos → Carrito del dominio → Venta; + CobrarRequest, ItemRequest, ProductoNoEncontradoException),
+    Ventas/   CobrarProductos (resuelve productos → Carrito → Venta EsperandoPago → PaymentGateway.charge →
+              confirm/cancel + reservar/liberar stock; + CobrarRequest, ItemRequest, ProductoNoEncontradoException,
+              PagoRechazadoException),
+              ProcesarDevolucion (carga venta confirmada → registrarDevolucion → persistir + dispatch;
+              + VentaNoEncontradaException),
               ObtenerCierreDeCaja
     Stock/    ListarStock (+ VistaDeStock), RegistrarReposicion (+ ResultadoDeReposicion),
               ListarMovimientos (+ MovimientoView), ListarAlertas (+ AlertaView),
@@ -51,19 +61,19 @@ src/Supermercado/
             OfertaModel, MovimientoDeStockModel, AlertaDeStockModel
     Trait: AlmacenaJson (I/O read/write de archivos JSON; dir base configurable)
     Eloquent{Producto,Oferta,Venta,Gondola,Deposito,MovimientoDeStock,AlertaDeStock}Repository
-    Json{Producto,Oferta,Venta,Gondola,Deposito,MovimientoDeStock,AlertaDeStock}Repository
+  Infrastructure/Payments/ AlwaysSucceedsPaymentGateway (mock adapter del port PaymentGateway)
 app/
   Access/                Perfil (enum puro: cajero/depositista/repositor), SesionDePerfil (deriva el perfil del usuario autenticado)
   Facades/               Perfil (Facade de acceso al perfil/usuario actual)
-  Http/Controllers/Api/  CobroController, CierreDeCajaController, StockController, ReposicionController, ReabastecimientoController, TokenController, CatalogoController, AjusteController, UmbralController
+  Http/Controllers/Api/  CobroController, CierreDeCajaController, StockController, ReposicionController, ReabastecimientoController, TokenController, CatalogoController, AjusteController, UmbralController, DevolucionController
   Http/Controllers/Web/  PaginaWebController (Inertia: tablero/catalogo/cobrar/cierre/movimientos/alertas/auditoria/reportes + login/logout)
   Http/Middleware/       HandleInertiaRequests, RequierePerfil (gatea vistas por perfil del usuario autenticado)
-  Listeners/             DescontarDeGondola, AvisarAlDeposito, Repositor, RegistrarAlerta, RegistrarEventoDeDominio (log de auditoría)
+  Listeners/             DescontarDeGondola (confirmarReserva), AvisarAlDeposito, RestaurarStockPorDevolucion, Repositor, RegistrarAlerta, RegistrarEventoDeDominio (log de auditoría)
   Console/Commands/      ReponerStockCommand (CLI del repositor)
   Models/User            # rol → Perfil; Authenticatable para login web
-  Providers/AppServiceProvider  # binds puertos → adapter (Eloquent por defecto, Json si SUPERMERCADO_PERSISTENCE=json) + 'sesion.de.perfil'
+  Providers/AppServiceProvider  # binds puertos → adapter (Eloquent por defecto, Json si SUPERMERCADO_PERSISTENCE=json) + PaymentGateway → AlwaysSucceedsPaymentGateway + 'sesion.de.perfil'
 config/supermercado.php  # persistence (eloquent|json) + json_dir
-routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}, /restock/{id}, /tokens, /products (CRUD), /offers (CRUD), /adjust/{id}, /threshold/{id}
+routes/api.php   # /checkout, /cash-close, /stock, /replenish/{id}, /restock/{id}, /tokens, /products (CRUD), /offers (CRUD), /adjust/{id}, /threshold/{id}, /returns/{ventaId}
 routes/web.php   # /login (GET+POST), /logout; grupo gateado 'perfil': /, /tablero, /catalogo, /cobrar, /cierre, /stock, /movimientos, /alertas, /auditoria, /reportes
 resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol + logout), Paginas/{Tablero,Catalogo,Cobrar,Cierre,Movimientos,Alertas,Auditoria,Reportes,Perfiles/Login}.vue
 ```
@@ -73,40 +83,46 @@ resources/js/    # app.js, Layouts/AppLayout.vue (nav por rol + logout), Paginas
 La lógica vive en las **entidades**, no en servicios anémicos: la capa de aplicación *les pregunta*
 a los objetos en lugar de inspeccionarlos y recalcular.
 
-- `Gondola`/`Deposito` son dueñas de su `umbralBajo` (antes constante `UMBRAL_BAJO`, ahora campo
-  configurable por producto con `configurarUmbral()`) y exponen sus operaciones (`gapTo`,
-  `maxAvailableFor`, `wouldBeLowAfter`). `PoliticaDeReposicion::decide()` es un orquestador delgado
-  que delega en ellas; sólo retiene `TARGET_LEVEL` (decisión de política, no de la ubicación).
-- `Venta` expone sus reglas (`isConfirmed`, `isForCashier`, `isOnDay`) y contadores (`lineCount`,
-  `itemCount`); `CierreDeCaja` los usa en vez de filtrar a mano.
+- `Gondola`/`Deposito` son dueñas de su `umbralBajo` (configurable con `configurarUmbral()`) y exponen sus operaciones
+  (`gapTo`, `maxAvailableFor`, `wouldBeLowAfter`). `Gondola` además gestiona reservas: `reservado()`,
+  `disponible()`, `reservar()`, `confirmarReserva()`, `liberarReserva()`.
+  `PoliticaDeReposicion::decide()` es un orquestador delgado que delega en ellas; retiene `TARGET_LEVEL`.
+- `Venta` tiene una state machine estricta: `Pendiente → EsperandoPago → Confirmada|Cancelada`. El método
+  `marcarEsperandoPago()` pasa de Pendiente a EsperandoPago; `confirm()` y `cancel()` requieren EsperandoPago.
+  `registrarDevolucion(items)` graba `DevolucionRegistrada` sobre ventas confirmadas.
+  Expone predicados (`isConfirmed`, `isEsperandoPago`, `isForCashier`, `isOnDay`) y contadores (`lineCount`, `itemCount`).
 - `Ofertas` es una colección first-class (`bestActiveFor`); `Cotizador` queda delgado.
-- `Carrito` es un VO efímero del dominio que encapsula el ensamblaje de la `Venta` con pricing. Antes el loop de "resolver + cotizar + addLine" vivía inline en `CobrarProductos`; ahora `Carrito::cobrar()` lo encapsula y es testeable sin DB. No se persiste — muere al producir la Venta.
+- `Carrito` es un VO efímero que ensambla la `Venta` con pricing. `Carrito::cobrar()` produce una Venta en
+  `EsperandoPago` (no `Pendiente`). No se persiste — muere al producir la Venta.
+- `PaymentGateway` es un port del dominio (`charge → ResultadoDePago`); `AlwaysSucceedsPaymentGateway` es el adapter mock.
 - `Dinero::sum()` elimina el fold manual repetido en los totales.
 
 ## Flujo de eventos (compra → depósito → repositor → alerta persistida)
 
 ```
-POST /checkout → CobrarProductos: resuelve productos+ofertas → Carrito::cobrar() ensambla Venta(Pendiente)
-                 → Venta::confirm() graba CompraRealizada → persistir → Event::dispatch
-                ┌──────────────────┴──────────────────┐
-        DescontarDeGondola                     AvisarAlDeposito
-        descuenta la góndola (sale el          registra MovimientoDeStock
-        producto vendido)                      (auditoría del depósito)
-                │ si gondola < 30
-                ▼
-        AlertaDeStock(gondola) ── Event::dispatch ──┐
-                │                                   ▼
-                ▼                            RegistrarAlerta (persiste la alerta)
-        Repositor (servicio): repone         ↳ AlertaDeStockRepository
-        desde el depósito                       (tabla alertas_de_stock / alertas.json)
-        (PoliticaDeReposicion: <30 → llenar a 50; depósito <150 → alerta)
-                │ si depósito < 150 (tras reponer)
-                ▼
-        AlertaDeStock(deposito) ── Event::dispatch ──→ RegistrarAlerta (persiste)
-```
+POST /checkout → CobrarProductos: resuelve productos+ofertas → Carrito::cobrar() ensambla Venta(EsperandoPago)
+                 → reservar stock en góndola → PaymentGateway.charge(monto, metodo)
+                 ┌─ pago OK ──→ Venta::confirm() graba CompraRealizada → persistir → Event::dispatch
+                 │            ┌──────────────────┴──────────────────┐
+                 │    DescontarDeGondola                     AvisarAlDeposito
+                 │    confirmarReserva (quantity -= n)       registra MovimientoDeStock
+                 │            │ si gondola < 30
+                 │            ▼
+                 │    AlertaDeStock(gondola) → Repositor → repone desde depósito → AlertaDeStock(deposito)
+                 │
+                 └─ pago rechazado → liberar reservas → Venta::cancel() → persistir → PagoRechazadoException
 
-- La **Venta** es un aggregate: registra líneas, total, **método de pago** y estado; al confirmarse graba el evento.
-- **DescontarDeGondola**: descuenta el stock de exhibición; si la góndola cae bajo su mínimo, despacha `AlertaDeStock`.
+POST /returns/{ventaId} → ProcesarDevolucion: carga venta confirmada → registrarDevolucion(items)
+                         → persistir → Event::dispatch(DevolucionRegistrada)
+                ┌──────────────────┴──────────────────┐
+        RestaurarStockPorDevolucion
+        restock la góndola (devuelve el producto)   registra MovimientoDeStock(tipo Devolucion)
+
+
+- La **Venta** es un aggregate con state machine: `Pendiente → EsperandoPago → Confirmada|Cancelada`.
+  `CobrarProductos` reserva stock, cobra vía `PaymentGateway`, confirma o cancela. `registrarDevolucion()` sobre ventas confirmadas graba `DevolucionRegistrada`.
+- **DescontarDeGondola**: `confirmarReserva()` (descuenta quantity y limpia reservado); si la góndola cae bajo su mínimo, despacha `AlertaDeStock`.
+- **RestaurarStockPorDevolucion**: `restock()` restaura stock en la góndola + registra `MovimientoDeStock` tipo `Devolucion`.
 - **AvisarAlDeposito**: el depósito deja huella del movimiento (no descuenta backstock en la venta).
 - **RegistrarReposicion**: aplica la reposición y, si el depósito cae bajo 150, **despacha** `AlertaDeStock` de depósito (antes sólo la devolvía como valor).
 - **Repositor**: servicio sin identidad que repone la góndola desde el depósito al recibir la alerta de góndola.
@@ -188,12 +204,19 @@ SUPERMERCADO_PERSISTENCE=json docker compose run --rm app php artisan migrate:fr
 - **CI sin `.env`** → `phpunit.xml` setea `APP_KEY` (sino, `MissingAppKeyException` en feature tests).
 - **PSR-4:** `"Supermercado\\": "src/Supermercado/"`.
 - **Eventos:** los listeners en `app/Listeners` se cablean por **auto-discovery** de Laravel 11+ (NO hay `EventServiceProvider`; si se agrega uno, se duplican y disparan dos veces).
+- **State machine de Venta:** `confirm()` y `cancel()` requieren `EsperandoPago`, no `Pendiente`. En tests, llamar `marcarEsperandoPago()` antes de `confirm()`.
 - **Auth:** el perfil viene del usuario autenticado (`Auth::user()->perfil()`), no de la sesión. Si re-introducís un selector manual, hay que tocar `SesionDePerfil`.
 - **Inertia v3:** root view `resources/views/app.blade.php` (`@inertia`); middleware `HandleInertiaRequests` registrado en `bootstrap/app.php`.
 - **`tests/Pest.php`** con `uses(Tests\TestCase::class)->in('Feature');` + helpers `cajero()/depositista()/repositor()` es obligatorio para que los feature tests booteen el app y resuelvan los bindings.
 - **JSON adapters:** no usan DB; los tests setean `config(['supermercado.json_dir' => $tmpDir])` en `beforeEach`.
+- **CI/CD:** `.github/workflows/ci.yml` con dos jobs (SQLite + Postgres). El job de Postgres crea `supermercado_testing` antes de correr Pest (el container solo crea `supermercado`).
 
 ## Estado
 
-- ✅ Dominio + Infrastructure (Eloquent **+ Json**) + Application + Presentation (API + Web/Inertia) + Eventos + **alertas persistidas** + **login + roles reales** + Vue + Dockerfile + Dockerfile.dev (Postgres) + CI + seeder + README. **+ Catálogo CRUD + Ajustes manuales + Log de auditoría + Reportes históricos + Alertas configurables** (217 tests, 520 assertions). **Postgres 16 validado**: las 12 migraciones + seeder + los 217 tests corren verdes contra Postgres sin tocar el dominio — la frontera hexagonal es real.
-- 🔜 Futuro: SSR de Inertia, más tests de edge cases.
+- ✅ Dominio + Infrastructure (Eloquent **+ Json**) + Application + Presentation (API + Web/Inertia) + Eventos + **alertas persistidas** + **login + roles reales** + Vue + Dockerfile + Dockerfile.dev (Postgres) + CI/CD (GitHub Actions) + seeder + README.
+  **+ Catálogo CRUD + Ajustes manuales + Log de auditoría + Reportes históricos + Alertas configurables**
+  **+ Estados de pago** (EsperandoPago state machine + PaymentGateway port + AlwaysSucceedsPaymentGateway adapter)
+  **+ Reserva de stock** (Gondola.reservar/confirmarReserva/liberarReserva + CobrarProductos reserve-on-cobrar/release-on-cancel)
+  **+ Devoluciones** (Venta::registrarDevolucion + DevolucionRegistrada event + RestaurarStockPorDevolucion listener + ProcesarDevolucion use case + API POST /api/returns/{ventaId})
+  (241 tests, 577 assertions).
+- 🔜 Futuro: SSR de Inertia, más tests de edge cases, gateway de pago real.

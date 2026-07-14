@@ -13,12 +13,14 @@ use Supermercado\Domain\Comun\Dinero;
  * el total, el método de pago con el que el cliente abonó y su estado. Al
  * confirmarse graba un evento de dominio CompraRealizada para que reaccionen
  * los interesados (descontar stock de la góndola, avisar al depósito, ...).
+ * registrarDevolucion graba DevolucionRegistrada para restaurar stock devuelto.
  *
  * Invariantes:
  *  - Las líneas solo pueden agregarse mientras la venta está Pendiente.
  *  - Todas las líneas deben compartir la misma moneda.
  *  - Una venta no puede confirmarse sin líneas.
- *  - Las transiciones de estado son explícitas: Pendiente -> Confirmada | Cancelada.
+ *  - Las transiciones de estado son explícitas:
+ *    Pendiente → EsperandoPago → Confirmada | Cancelada.
  */
 final class Venta
 {
@@ -111,6 +113,11 @@ final class Venta
         return $this->status === EstadoDeVenta::Cancelada;
     }
 
+    public function isEsperandoPago(): bool
+    {
+        return $this->status === EstadoDeVenta::EsperandoPago;
+    }
+
     /** ¿Pertenece esta venta a este cajero? Regla de negocio del cierre de caja. */
     public function isForCashier(string $cashierId): bool
     {
@@ -167,9 +174,21 @@ final class Venta
         return array_sum(array_map(fn (LineaDeVenta $line) => $line->quantity(), $this->lines));
     }
 
+    /**
+     * Transición Pendiente → EsperandoPago. La venta fue ensamblada por el
+     * Carrito y ahora espera confirmación de pago. A partir de acá no se
+     * pueden agregar ni quitar líneas.
+     */
+    public function marcarEsperandoPago(): void
+    {
+        $this->ensureStatus(EstadoDeVenta::Pendiente, 'marcada como esperando pago');
+
+        $this->status = EstadoDeVenta::EsperandoPago;
+    }
+
     public function confirm(): void
     {
-        $this->ensureStatus(EstadoDeVenta::Pendiente, 'confirmada');
+        $this->ensureStatus(EstadoDeVenta::EsperandoPago, 'confirmada');
 
         if ($this->lines === []) {
             throw new \DomainException('Cannot confirm a sale with no lines.');
@@ -180,9 +199,48 @@ final class Venta
         $this->eventos[] = new CompraRealizada($this->id, $this->metodoDePago, $this->lines);
     }
 
+    /**
+     * Registra una devolución parcial o total sobre la venta confirmada.
+     * Cada item indica qué producto y cuántas unidades se devuelven. Lanza si:
+     *  - La venta no está Confirmada.
+     *  - Algún producto no pertenece a la venta.
+     *  - La cantidad a devolver excede la vendida.
+     *
+     * @param  ItemDevolucion[]  $items
+     */
+    public function registrarDevolucion(array $items): void
+    {
+        if ($this->status !== EstadoDeVenta::Confirmada) {
+            throw new \DomainException("Solo las ventas confirmadas pueden recibir devoluciones (estado actual: {$this->status->value}).");
+        }
+
+        if ($items === []) {
+            throw new \DomainException('La devolución debe contener al menos un item.');
+        }
+
+        foreach ($items as $item) {
+            $vendido = 0;
+            foreach ($this->lines as $linea) {
+                if ($linea->productId() === $item->productoId()) {
+                    $vendido += $linea->quantity();
+                }
+            }
+
+            if ($vendido === 0) {
+                throw new \DomainException("El producto {$item->productoId()} no pertenece a la venta {$this->id}.");
+            }
+
+            if ($item->cantidad() > $vendido) {
+                throw new \DomainException("No se pueden devolver {$item->cantidad()} unidades del producto {$item->productoId()}: solo se vendieron {$vendido}.");
+            }
+        }
+
+        $this->eventos[] = new DevolucionRegistrada($this->id, $items);
+    }
+
     public function cancel(): void
     {
-        $this->ensureStatus(EstadoDeVenta::Pendiente, 'cancelada');
+        $this->ensureStatus(EstadoDeVenta::EsperandoPago, 'cancelada');
 
         $this->status = EstadoDeVenta::Cancelada;
     }

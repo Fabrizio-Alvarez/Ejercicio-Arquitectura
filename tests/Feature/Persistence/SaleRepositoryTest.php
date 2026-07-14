@@ -15,6 +15,7 @@ it('persists and retrieves a confirmed sale with its lines and total', function 
     $sale = new Venta('s-1', 'cashier-1', 'Jane Doe', new \DateTimeImmutable('2026-01-15 10:00:00'));
     $sale->addLine(new LineaDeVenta('p-1', 'Milk', 2, new Dinero(150, 'ARS')));
     $sale->addLine(new LineaDeVenta('p-2', 'Bread', 1, new Dinero(300, 'ARS')));
+    $sale->marcarEsperandoPago();
     $sale->confirm();
 
     $repo->save($sale);
@@ -53,6 +54,7 @@ it('lists all persisted sales', function () {
     foreach (['s-1', 's-2'] as $id) {
         $sale = new Venta($id, 'cashier-1', 'Jane', new \DateTimeImmutable('2026-01-15'));
         $sale->addLine(new LineaDeVenta('p-1', 'Milk', 1, new Dinero(150, 'ARS')));
+        $sale->marcarEsperandoPago();
         $sale->confirm();
         $repo->save($sale);
     }

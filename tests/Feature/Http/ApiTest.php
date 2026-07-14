@@ -72,6 +72,7 @@ it('returns the cash close via GET /api/cash-close', function () {
     $this->actingAs(cajero());
     $sale = new Venta('s-1', 'cashier-1', 'Jane', new \DateTimeImmutable('2026-01-15 10:00:00'));
     $sale->addLine(new LineaDeVenta('p-1', 'Milk', 1, new Dinero(450, 'ARS')));
+    $sale->marcarEsperandoPago();
     $sale->confirm();
     app(VentaRepository::class)->save($sale);
 

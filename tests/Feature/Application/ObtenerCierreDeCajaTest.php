@@ -13,6 +13,7 @@ function confirmSale(string $id, string $cashier, string $customer, string $date
 {
     $sale = new Venta($id, $cashier, $customer, new \DateTimeImmutable($date));
     $sale->addLine(new LineaDeVenta('p-1', 'Item', 1, new Dinero($amount, 'ARS')));
+    $sale->marcarEsperandoPago();
     $sale->confirm();
     app(VentaRepository::class)->save($sale);
 

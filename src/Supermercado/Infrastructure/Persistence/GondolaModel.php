@@ -18,5 +18,5 @@ final class GondolaModel extends Model
 
     protected $primaryKey = 'product_id';
 
-    protected $fillable = ['product_id', 'quantity', 'umbral_bajo'];
+    protected $fillable = ['product_id', 'quantity', 'umbral_bajo', 'reservado'];
 }
