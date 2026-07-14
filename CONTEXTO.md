@@ -25,6 +25,8 @@ src/Supermercado/
     Ventas/   Venta (aggregate: state machine + predicados isConfirmed/isForCashier/isOnDay +
               counts lineCount/itemCount), LineaDeVenta, EstadoDeVenta,
               Cotizador (servicio delgado, delega en Ofertas), CierreDeCaja, ResumenDeVenta,
+              Carrito (VO efímero: ensambla Venta con pricing via Cotizador; agregar/remover/cobrar),
+              ItemCarrito (VO: producto resuelto + cantidad + ofertas),
               VentaRepository, MetodoDePago (enum), CompraRealizada (evento de dominio)
     Stock/    Gondola (umbralBajo configurable + gapTo + isLow), Deposito (umbralBajo configurable + maxAvailableFor/wouldBeLowAfter + isLow),
               PoliticaDeReposicion (orquestador delgado, TARGET_LEVEL), DecisionDeReposicion (+ none),
@@ -34,7 +36,7 @@ src/Supermercado/
               GondolaRepository (port), DepositoRepository (port)
     Comun/    Dinero (VO, integer cents, +sum), MonedaDistintaException
   Application/       # Casos de uso (orquestan dominio + puertos)
-    Ventas/   CobrarProductos (+ CobrarRequest, ItemRequest, ProductoNoEncontradoException),
+    Ventas/   CobrarProductos (resuelve productos → Carrito del dominio → Venta; + CobrarRequest, ItemRequest, ProductoNoEncontradoException),
               ObtenerCierreDeCaja
     Stock/    ListarStock (+ VistaDeStock), RegistrarReposicion (+ ResultadoDeReposicion),
               ListarMovimientos (+ MovimientoView), ListarAlertas (+ AlertaView),
@@ -78,13 +80,14 @@ a los objetos en lugar de inspeccionarlos y recalcular.
 - `Venta` expone sus reglas (`isConfirmed`, `isForCashier`, `isOnDay`) y contadores (`lineCount`,
   `itemCount`); `CierreDeCaja` los usa en vez de filtrar a mano.
 - `Ofertas` es una colección first-class (`bestActiveFor`); `Cotizador` queda delgado.
+- `Carrito` es un VO efímero del dominio que encapsula el ensamblaje de la `Venta` con pricing. Antes el loop de "resolver + cotizar + addLine" vivía inline en `CobrarProductos`; ahora `Carrito::cobrar()` lo encapsula y es testeable sin DB. No se persiste — muere al producir la Venta.
 - `Dinero::sum()` elimina el fold manual repetido en los totales.
 
 ## Flujo de eventos (compra → depósito → repositor → alerta persistida)
 
 ```
-POST /checkout → CobrarProductos → Venta::confirm() graba CompraRealizada
-                                   ↓ Event::dispatch (tras persistir)
+POST /checkout → CobrarProductos: resuelve productos+ofertas → Carrito::cobrar() ensambla Venta(Pendiente)
+                 → Venta::confirm() graba CompraRealizada → persistir → Event::dispatch
                 ┌──────────────────┴──────────────────┐
         DescontarDeGondola                     AvisarAlDeposito
         descuenta la góndola (sale el          registra MovimientoDeStock

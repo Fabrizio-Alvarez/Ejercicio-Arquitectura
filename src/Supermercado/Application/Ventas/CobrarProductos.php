@@ -9,7 +9,9 @@ use Supermercado\Domain\Catalogo\OfertaRepository;
 use Supermercado\Domain\Catalogo\Ofertas;
 use Supermercado\Domain\Catalogo\ProductoRepository;
 use Supermercado\Domain\Comun\Clock;
+use Supermercado\Domain\Ventas\Carrito;
 use Supermercado\Domain\Ventas\Cotizador;
+use Supermercado\Domain\Ventas\ItemCarrito;
 use Supermercado\Domain\Ventas\Venta;
 use Supermercado\Domain\Ventas\VentaRepository;
 
@@ -17,9 +19,9 @@ use Supermercado\Domain\Ventas\VentaRepository;
  * Caso de uso: CobrarProductos.
  *
  * Un cajero registra los productos que un cliente lleva a la caja. El sistema
- * cotiza cada uno (aplicando la mejor oferta activa), arma la Venta, la
- * confirma y la persiste. Al confirmarse, el agregado graba el evento de
- * dominio CompraRealizada; este caso de uso lo despacha para que reaccionen
+ * resuelve productos y ofertas, los carga en un Carrito del dominio, y éste
+ * ensambla la Venta aplicando pricing vía Cotizador. El caso de uso confirma y
+ * persiste la venta, y despacha el evento CompraRealizada para que reaccionen
  * los interesados (descontar la góndola, avisar al depósito, ...).
  */
 final class CobrarProductos
@@ -36,8 +38,8 @@ final class CobrarProductos
     {
         $now = $this->clock->now();
 
-        $sale = new Venta($request->saleId, $request->cashierId, $request->customerName, $now, $request->metodoDePago);
-
+        // Resolver productos y ofertas → items del carrito (dominio puro).
+        $items = [];
         foreach ($request->items as $item) {
             $product = $this->products->find($item->productId);
 
@@ -45,10 +47,18 @@ final class CobrarProductos
                 throw ProductoNoEncontradoException::forId($item->productId);
             }
 
-            $offers = new Ofertas($this->offers->findByProduct($item->productId));
+            $ofertas = new Ofertas($this->offers->findByProduct($item->productId));
 
-            $sale->addLine($this->pricer->price($product, $item->quantity, $offers, $now));
+            $items[] = new ItemCarrito($product, $item->quantity, $ofertas);
         }
+
+        // El carrito ensambla la venta aplicando pricing vía Cotizador.
+        $carrito = new Carrito($items);
+        $sale = $carrito->cobrar(
+            $this->pricer, $now,
+            $request->saleId, $request->cashierId, $request->customerName,
+            $request->metodoDePago,
+        );
 
         $sale->confirm();
 
