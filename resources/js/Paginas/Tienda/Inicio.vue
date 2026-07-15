@@ -2,6 +2,8 @@
 import { Link } from '@inertiajs/vue3';
 import { useCart } from '../../composables/useCart.js';
 import { useFormato } from '../../composables/useFormato.js';
+import { useToast } from '../../composables/useToast.js';
+import { emojiProducto, colorProducto } from '../../constants/emojis.js';
 
 defineProps({
     destacados: { type: Array, default: () => [] },
@@ -10,6 +12,9 @@ defineProps({
 
 const { add } = useCart();
 const formato = useFormato();
+const toast = useToast();
+const emoji = emojiProducto;
+const color = colorProducto;
 </script>
 
 <template>
@@ -72,15 +77,15 @@ const formato = useFormato();
                 :key="producto.id"
                 class="group flex flex-col rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg hover:border-emerald-300 transition-all"
             >
-                <Link :href="`/tienda/producto/${producto.id}`" class="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                    <span class="text-4xl opacity-30 group-hover:scale-110 transition-transform">{{ producto.nombre.charAt(0) }}</span>
+                <Link :href="`/tienda/producto/${producto.id}`" :class="`aspect-square bg-gradient-to-br ${color(producto.id)} flex items-center justify-center`">
+                    <span class="text-5xl drop-shadow-lg group-hover:scale-125 transition-transform duration-300">{{ emoji(producto.nombre) }}</span>
                 </Link>
                 <div class="flex flex-col flex-1 p-3">
                     <p class="text-sm font-semibold text-slate-800 truncate">{{ producto.nombre }}</p>
                     <div class="mt-auto pt-2 flex items-center justify-between">
                         <span class="font-bold text-slate-800">{{ formato.dinero(producto.precio * 100) }}</span>
                         <button
-                            @click="add(producto)"
+                            @click="add(producto); toast.success(`${producto.nombre} agregado`)"
                             :disabled="!producto.disponible"
                             class="rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:bg-slate-300 transition-colors"
                         >

@@ -1,13 +1,25 @@
 <script setup>
-import { ref } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 import { useCart } from '../composables/useCart.js';
 import { useFormato } from '../composables/useFormato.js';
+import Toast from '../components/Toast.vue';
 
+const page = usePage();
 const { count, items, subtotal, increment, decrement, remove } = useCart();
 const formato = useFormato();
 
 const cartOpen = ref(false);
+const badgePulse = ref(false);
+const mobileNavOpen = ref(false);
+
+// Animate badge when count increases
+watch(count, (newVal, oldVal) => {
+    if (newVal > oldVal) {
+        badgePulse.value = true;
+        setTimeout(() => (badgePulse.value = false), 400);
+    }
+});
 
 function toggleCart() {
     cartOpen.value = !cartOpen.value;
@@ -26,11 +38,21 @@ function toggleCart() {
                         <span class="font-bold text-lg text-slate-800">Supermercado</span>
                     </Link>
 
-                    <!-- Nav -->
+                    <!-- Nav (desktop) -->
                     <nav class="hidden sm:flex items-center gap-6 text-sm">
                         <Link href="/tienda" class="text-slate-600 hover:text-emerald-600 transition-colors">Inicio</Link>
                         <Link href="/tienda/catalogo" class="text-slate-600 hover:text-emerald-600 transition-colors">Catálogo</Link>
                     </nav>
+
+                    <!-- Mobile menu toggle -->
+                    <button
+                        @click="mobileNavOpen = !mobileNavOpen"
+                        class="sm:hidden text-slate-600 hover:text-emerald-600 p-2"
+                    >
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
 
                     <!-- Cart button -->
                     <button
@@ -43,16 +65,36 @@ function toggleCart() {
                         <span class="hidden sm:inline">Carrito</span>
                         <span
                             v-if="count > 0"
+                            :key="count"
                             class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white"
+                            :class="{ 'animate-bounce': badgePulse }"
                         >{{ count }}</span>
                     </button>
                 </div>
             </div>
         </header>
+        <!-- Mobile nav -->
+        <Transition
+            enter-active-class="transition-all duration-200 ease-out overflow-hidden"
+            leave-active-class="transition-all duration-200 ease-in overflow-hidden"
+            enter-from-class="max-h-0 opacity-0"
+            enter-to-class="max-h-32 opacity-100"
+            leave-from-class="max-h-32 opacity-100"
+            leave-to-class="max-h-0 opacity-0"
+        >
+            <nav v-if="mobileNavOpen" class="sm:hidden bg-white border-b border-slate-200 px-4 py-3 space-y-2">
+                <Link href="/tienda" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600">Inicio</Link>
+                <Link href="/tienda/catalogo" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600">Catálogo</Link>
+            </nav>
+        </Transition>
 
-        <!-- Main content -->
+        <!-- Main content with page transitions -->
         <main class="flex-1">
-            <slot />
+            <Transition name="page" mode="out-in">
+                <div :key="page.url">
+                    <slot />
+                </div>
+            </Transition>
         </main>
 
         <!-- Footer -->
@@ -131,6 +173,8 @@ function toggleCart() {
                 </div>
             </Transition>
         </Teleport>
+
+        <Toast />
     </div>
 </template>
 
@@ -141,6 +185,16 @@ function toggleCart() {
 }
 .drawer-enter-from,
 .drawer-leave-to {
+    opacity: 0;
+}
+.page-enter-active {
+    transition: opacity 0.25s ease-out;
+}
+.page-leave-active {
+    transition: opacity 0.15s ease-in;
+}
+.page-enter-from,
+.page-leave-to {
     opacity: 0;
 }
 </style>

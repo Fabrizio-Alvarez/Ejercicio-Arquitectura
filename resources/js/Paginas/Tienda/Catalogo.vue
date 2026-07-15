@@ -3,6 +3,8 @@ import { ref, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { useCart } from '../../composables/useCart.js';
 import { useFormato } from '../../composables/useFormato.js';
+import { useToast } from '../../composables/useToast.js';
+import { emojiProducto, colorProducto } from '../../constants/emojis.js';
 
 const props = defineProps({
     productos: { type: Array, default: () => [] },
@@ -11,6 +13,9 @@ const props = defineProps({
 
 const { add } = useCart();
 const formato = useFormato();
+const toast = useToast();
+const emoji = emojiProducto;
+const color = colorProducto;
 
 const busqueda = ref(props.filtros.q ?? '');
 const orden = ref(props.filtros.sort ?? 'nombre');
@@ -83,8 +88,8 @@ function buscar() {
                 class="group flex flex-col rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg hover:border-emerald-300 transition-all duration-200"
             >
                 <!-- Product "image" area -->
-                <Link :href="`/tienda/producto/${producto.id}`" class="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                    <span class="text-5xl opacity-30 group-hover:scale-110 transition-transform">{{ producto.nombre.charAt(0) }}</span>
+                <Link :href="`/tienda/producto/${producto.id}`" :class="`aspect-square bg-gradient-to-br ${color(producto.id)} flex items-center justify-center`">
+                    <span class="text-6xl drop-shadow-lg group-hover:scale-125 transition-transform duration-300">{{ emoji(producto.nombre) }}</span>
                 </Link>
 
                 <!-- Info -->
@@ -100,7 +105,7 @@ function buscar() {
                             <span class="text-xs font-normal text-slate-400">{{ producto.moneda }}</span>
                         </span>
                         <button
-                            @click="add(producto)"
+                            @click="add(producto); toast.success(`${producto.nombre} agregado al carrito`)"
                             :disabled="!producto.disponible"
                             class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
                         >

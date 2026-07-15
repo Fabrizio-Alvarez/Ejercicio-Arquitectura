@@ -3,6 +3,8 @@ import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { useCart } from '../../composables/useCart.js';
 import { useFormato } from '../../composables/useFormato.js';
+import { useToast } from '../../composables/useToast.js';
+import { emojiProducto, colorProducto } from '../../constants/emojis.js';
 
 const props = defineProps({
     producto: { type: Object, required: true },
@@ -11,10 +13,14 @@ const props = defineProps({
 
 const { add } = useCart();
 const formato = useFormato();
+const toast = useToast();
+const emoji = emojiProducto;
+const color = colorProducto;
 const cantidad = ref(1);
 
 function agregarAlCarrito() {
-    add({ ...props.producto });
+    for (let i = 0; i < cantidad.value; i++) add({ ...props.producto });
+    toast.success(`${cantidad.value} × ${props.producto.nombre} agregado${cantidad.value > 1 ? 's' : ''}`);
     cantidad.value = 1;
 }
 </script>
@@ -32,8 +38,8 @@ function agregarAlCarrito() {
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- "Image" -->
-            <div class="aspect-square rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center shadow-sm">
-                <span class="text-[12rem] opacity-20">{{ producto.nombre.charAt(0) }}</span>
+            <div :class="`aspect-square rounded-2xl bg-gradient-to-br ${color(producto.id)} flex items-center justify-center shadow-sm`">
+                <span class="text-[12rem] drop-shadow-2xl">{{ emoji(producto.nombre) }}</span>
             </div>
 
             <!-- Info -->
