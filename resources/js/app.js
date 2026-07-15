@@ -1,7 +1,7 @@
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import AppLayout from './Layouts/AppLayout.vue';
-import '../css/app.css';
+import StoreLayout from './Layouts/StoreLayout.vue';
 
 createInertiaApp({
     resolve: (name) => {
@@ -13,8 +13,11 @@ createInertiaApp({
         }
 
         // El selector de perfiles va sin layout (entrada pre-perfil);
-        // el resto se envuelve en el layout compartido.
-        if (name !== 'Perfiles/Iniciar') {
+        // las páginas del storefront usan su propio layout;
+        // el resto se envuelve en el layout admin compartido.
+        if (name.startsWith('Tienda/')) {
+            page.default.layout = (h, page) => h(StoreLayout, {}, () => page);
+        } else if (name !== 'Perfiles/Iniciar') {
             page.default.layout = (h, page) => h(AppLayout, {}, () => page);
         }
 

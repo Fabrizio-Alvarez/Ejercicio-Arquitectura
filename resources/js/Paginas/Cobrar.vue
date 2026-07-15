@@ -1,13 +1,16 @@
 <script setup>
-import { ref } from 'vue';
 import { router } from '@inertiajs/vue3';
+import { apiFetch } from '../api.js';
+import Card from '../components/Card.vue';
+import { useFormato } from '../composables/useFormato.js';
+import { useApiForm } from '../composables/useApiForm.js';
 
 const props = defineProps({
     productos: { type: Array, default: () => [] },
     metodosDePago: { type: Array, default: () => [] },
 });
 
-const form = ref({
+const { data: form, processing, error, result } = useApiForm({
     productoId: props.productos[0]?.id ?? '',
     cantidad: 1,
     metodoDePago: 'efectivo',
@@ -15,25 +18,22 @@ const form = ref({
     cliente: '',
 });
 
-const venta = ref(null);
-const error = ref(null);
-const enviando = ref(false);
+const { dineroVO } = useFormato();
 
 async function cobrar() {
     error.value = null;
-    venta.value = null;
-    enviando.value = true;
+    result.value = null;
+    processing.value = true;
 
     try {
-        const res = await fetch('/api/checkout', {
+        const res = await apiFetch('/api/checkout', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify({
                 saleId: crypto.randomUUID(),
-                cashierId: form.value.cajeroId,
-                customerName: form.value.cliente || 'Consumidor Final',
-                paymentMethod: form.value.metodoDePago,
-                items: [{ productId: form.value.productoId, quantity: Number(form.value.cantidad) }],
+                cashierId: form.cajeroId,
+                customerName: form.cliente || 'Consumidor Final',
+                paymentMethod: form.metodoDePago,
+                items: [{ productId: form.productoId, quantity: Number(form.cantidad) }],
             }),
         });
 
@@ -42,12 +42,12 @@ async function cobrar() {
             throw new Error(data.message || 'No se pudo registrar la venta');
         }
 
-        venta.value = data;
+        result.value = data;
         router.reload({ only: [] });
     } catch (e) {
         error.value = e.message;
     } finally {
-        enviando.value = false;
+        processing.value = false;
     }
 }
 </script>
@@ -91,42 +91,44 @@ async function cobrar() {
                         </label>
                     </div>
 
-                    <button :disabled="enviando || !form.productoId" class="w-full rounded bg-emerald-600 text-white py-2 font-semibold hover:bg-emerald-700 disabled:opacity-50">
-                        {{ enviando ? 'Cobrando…' : 'Cobrar' }}
+                    <button :disabled="processing || !form.productoId" class="w-full rounded bg-emerald-600 text-white py-2 font-semibold hover:bg-emerald-700 disabled:opacity-50">
+                        {{ processing ? 'Cobrando…' : 'Cobrar' }}
                     </button>
 
                     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
                 </form>
             </div>
 
-            <div v-if="venta">
-                <h2 class="text-2xl font-bold mb-6">Venta #{{ venta.id.slice(0, 8) }}</h2>
-                <div class="bg-white p-6 rounded-lg shadow-sm space-y-3">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-slate-500">Cliente</span>
-                        <span>{{ venta.customerName }}</span>
+            <div v-if="result">
+                <h2 class="text-2xl font-bold mb-6">Venta #{{ result.id.slice(0, 8) }}</h2>
+                <Card padding="p-6">
+                    <div class="space-y-3">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-500">Cliente</span>
+                            <span>{{ result.customerName }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-500">Pago</span>
+                            <span>{{ result.paymentMethod }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-500">Estado</span>
+                            <span>{{ result.status }}</span>
+                        </div>
+                        <hr />
+                        <ul class="text-sm space-y-1">
+                            <li v-for="line in result.lines" :key="line.productId" class="flex justify-between">
+                                <span>{{ line.quantity }} × {{ line.productName }}</span>
+                                <span>{{ dineroVO(line.unitPrice) }}</span>
+                            </li>
+                        </ul>
+                        <hr />
+                        <div class="flex justify-between font-bold">
+                            <span>Total</span>
+                            <span>{{ dineroVO(result.total) }}</span>
+                        </div>
                     </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-slate-500">Pago</span>
-                        <span>{{ venta.paymentMethod }}</span>
-                    </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-slate-500">Estado</span>
-                        <span>{{ venta.status }}</span>
-                    </div>
-                    <hr />
-                    <ul class="text-sm space-y-1">
-                        <li v-for="line in venta.lines" :key="line.productId" class="flex justify-between">
-                            <span>{{ line.quantity }} × {{ line.productName }}</span>
-                            <span>{{ (line.unitPrice.amount / 100).toFixed(2) }} {{ line.unitPrice.currency }}</span>
-                        </li>
-                    </ul>
-                    <hr />
-                    <div class="flex justify-between font-bold">
-                        <span>Total</span>
-                        <span>{{ (venta.total.amount / 100).toFixed(2) }} {{ venta.total.currency }}</span>
-                    </div>
-                </div>
+                </Card>
             </div>
         </div>
     </section>

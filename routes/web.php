@@ -1,8 +1,18 @@
 <?php
 
 use App\Facades\Perfil;
-use App\Http\Controllers\Web\PaginaWebController;
+use App\Http\Controllers\Web\TiendaController;
 use Illuminate\Support\Facades\Route;
+
+// Storefront público (e-commerce). Sin auth requerida.
+Route::prefix('/tienda')->name('tienda.')->group(function () {
+    Route::get('/', [TiendaController::class, 'inicio'])->name('inicio');
+    Route::get('/catalogo', [TiendaController::class, 'catalogo'])->name('catalogo');
+    Route::get('/producto/{id}', [TiendaController::class, 'producto'])->name('producto');
+    Route::get('/checkout', [TiendaController::class, 'checkout'])->name('checkout');
+    Route::post('/checkout', [TiendaController::class, 'confirmar'])->name('confirmar');
+    Route::get('/confirmacion/{ventaId}', [TiendaController::class, 'confirmacion'])->name('confirmacion');
+});
 
 // Auth (login web con roles). Público, sin perfil requerido.
 Route::get('/login', [PaginaWebController::class, 'login'])->name('login')->middleware('guest');

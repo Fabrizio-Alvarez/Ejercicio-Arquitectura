@@ -1,13 +1,16 @@
 <script setup>
-import { computed } from 'vue';
+import { etiquetaEvento } from '../constants/etiquetas.js';
+import Badge from '../components/Badge.vue';
+import DataTable from '../components/DataTable.vue';
 
 const props = defineProps({
   eventos: { type: Array, default: () => [] },
 });
 
-const etiquetaTipo = {
-  CompraRealizada: { texto: 'Compra', clase: 'bg-amber-100 text-amber-700' },
-  AlertaDeStock: { texto: 'Alerta', clase: 'bg-red-100 text-red-700' },
+const colorEvento = {
+  CompraRealizada: 'amber',
+  AlertaDeStock: 'red',
+  DevolucionRegistrada: 'purple',
 };
 
 function detalle(e) {
@@ -30,31 +33,20 @@ function detalle(e) {
       <span class="text-sm text-slate-500">{{ eventos.length }} eventos</span>
     </div>
 
-    <div v-if="eventos.length === 0" class="rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
-      Sin eventos registrados. Las compras y alertas aparecerán aquí automáticamente.
-    </div>
-
-    <div v-else class="overflow-hidden rounded-lg bg-white shadow-sm">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
-          <tr>
-            <th class="px-4 py-2">Cuándo</th>
-            <th class="px-4 py-2">Tipo</th>
-            <th class="px-4 py-2">Detalle</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="e in eventos" :key="e.id" class="border-t border-slate-100">
-            <td class="px-4 py-3 whitespace-nowrap text-slate-500">{{ e.occurredAt }}</td>
-            <td class="px-4 py-3">
-              <span class="inline-block rounded px-2 py-0.5 text-xs" :class="etiquetaTipo[e.tipo]?.clase ?? 'bg-slate-100 text-slate-600'">
-                {{ etiquetaTipo[e.tipo]?.texto ?? e.tipo }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-slate-600">{{ detalle(e) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      :headers="['Cuándo', 'Tipo', 'Detalle']"
+      :items="eventos"
+      empty="Sin eventos registrados. Las compras y alertas aparecerán aquí automáticamente."
+    >
+      <template #row="{ item: e }">
+        <td class="px-4 py-3 whitespace-nowrap text-slate-500">{{ e.occurredAt }}</td>
+        <td class="px-4 py-3">
+          <Badge :color="colorEvento[e.tipo] ?? 'slate'">
+            {{ etiquetaEvento[e.tipo]?.texto ?? e.tipo }}
+          </Badge>
+        </td>
+        <td class="px-4 py-3 text-slate-600">{{ detalle(e) }}</td>
+      </template>
+    </DataTable>
   </section>
 </template>
