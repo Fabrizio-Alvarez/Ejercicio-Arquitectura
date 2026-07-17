@@ -39,3 +39,10 @@ export const etiquetaEvento = {
     AlertaDeStock:    { texto: 'Alerta', clase: 'bg-red-100 text-red-700' },
     DevolucionRegistrada: { texto: 'Devolución', clase: 'bg-purple-100 text-purple-700' },
 };
+
+export const etiquetaEstado = {
+    pendiente:       'Pendiente',
+    esperando_pago:  'Esperando pago',
+    confirmada:      'Confirmada',
+    cancelada:       'Cancelada',
+};

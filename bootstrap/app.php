@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'perfil' => \App\Http\Middleware\RequierePerfil::class,
             'rol' => \App\Http\Middleware\RequiereRol::class,
+            'cliente' => \App\Http\Middleware\RequiereCliente::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -1,11 +1,13 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useCart } from '../composables/useCart.js';
 import { useFormato } from '../composables/useFormato.js';
 import Toast from '../components/Toast.vue';
 
 const page = usePage();
+const usuario = computed(() => page.props.usuario);
+const esCliente = computed(() => usuario.value?.rol === 'cliente');
 const { count, items, subtotal, increment, decrement, remove } = useCart();
 const formato = useFormato();
 
@@ -42,6 +44,16 @@ function toggleCart() {
                     <nav class="hidden sm:flex items-center gap-6 text-sm">
                         <Link href="/tienda" class="text-slate-600 hover:text-emerald-600 transition-colors">Inicio</Link>
                         <Link href="/tienda/catalogo" class="text-slate-600 hover:text-emerald-600 transition-colors">Catálogo</Link>
+                        <template v-if="esCliente">
+                            <Link href="/tienda/cuenta/pedidos" class="text-slate-600 hover:text-emerald-600 transition-colors">Mis pedidos</Link>
+                            <span class="text-slate-300">|</span>
+                            <span class="text-slate-500">{{ usuario.nombre }}</span>
+                            <Link href="/tienda/logout" method="post" as="button" class="text-slate-500 hover:text-red-500 transition-colors">Salir</Link>
+                        </template>
+                        <template v-else>
+                            <Link href="/tienda/login" class="text-slate-600 hover:text-emerald-600 transition-colors">Ingresar</Link>
+                            <Link href="/tienda/registro" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 transition-colors">Registrarse</Link>
+                        </template>
                     </nav>
 
                     <!-- Mobile menu toggle -->
@@ -85,6 +97,14 @@ function toggleCart() {
             <nav v-if="mobileNavOpen" class="sm:hidden bg-white border-b border-slate-200 px-4 py-3 space-y-2">
                 <Link href="/tienda" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600">Inicio</Link>
                 <Link href="/tienda/catalogo" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600">Catálogo</Link>
+                <template v-if="esCliente">
+                    <Link href="/tienda/cuenta/pedidos" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600">Mis pedidos</Link>
+                    <Link href="/tienda/logout" method="post" as="button" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-slate-600 hover:bg-red-50 hover:text-red-600">Salir ({{ usuario.nombre }})</Link>
+                </template>
+                <template v-else>
+                    <Link href="/tienda/login" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600">Ingresar</Link>
+                    <Link href="/tienda/registro" @click="mobileNavOpen = false" class="block rounded-lg px-3 py-2 text-emerald-700 font-medium hover:bg-emerald-50">Registrarse</Link>
+                </template>
             </nav>
         </Transition>
 

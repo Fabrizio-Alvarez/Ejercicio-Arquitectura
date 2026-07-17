@@ -12,6 +12,19 @@ Route::prefix('/tienda')->name('tienda.')->group(function () {
     Route::get('/checkout', [TiendaController::class, 'checkout'])->name('checkout');
     Route::post('/checkout', [TiendaController::class, 'confirmar'])->name('confirmar');
     Route::get('/confirmacion/{ventaId}', [TiendaController::class, 'confirmacion'])->name('confirmacion');
+
+    // Auth de cliente (público).
+    Route::get('/registro', [TiendaController::class, 'registro'])->name('registro');
+    Route::post('/registro', [TiendaController::class, 'registrar'])->name('registrar');
+    Route::get('/login', [TiendaController::class, 'login'])->name('login')->middleware('guest');
+    Route::post('/login', [TiendaController::class, 'autenticar'])->name('autenticar')->middleware('guest');
+    Route::post('/logout', [TiendaController::class, 'cerrarSesion'])->name('logout');
+
+    // Cuenta de cliente (requiere auth con rol cliente).
+    Route::middleware('cliente')->prefix('/cuenta')->name('cuenta.')->group(function () {
+        Route::get('/pedidos', [TiendaController::class, 'pedidos'])->name('pedidos');
+        Route::get('/pedidos/{id}', [TiendaController::class, 'pedido'])->name('pedido');
+    });
 });
 
 // Auth (login web con roles). Público, sin perfil requerido.

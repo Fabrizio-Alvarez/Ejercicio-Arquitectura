@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import { useCart } from '../../composables/useCart.js';
 import { useFormato } from '../../composables/useFormato.js';
 import { useToast } from '../../composables/useToast.js';
@@ -14,11 +14,12 @@ defineProps({
 const { items, subtotal, clear } = useCart();
 const formato = useFormato();
 const toast = useToast();
+const page = usePage();
 
 const paso = ref(1); // 1=datos, 2=pago, 3=review
 
 const form = useForm({
-    customerName: '',
+    customerName: page.props.usuario?.nombre ?? '',
     paymentMethod: 'efectivo',
     items: [],
 });

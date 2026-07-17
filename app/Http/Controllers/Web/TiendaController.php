@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+
 use Inertia\Inertia;
 use Inertia\Response;
 use Supermercado\Application\Stock\ListarStock;
@@ -17,7 +20,9 @@ use Supermercado\Application\Ventas\ItemRequest;
 use Supermercado\Domain\Catalogo\ProductoRepository;
 use Supermercado\Domain\Stock\GondolaRepository;
 use Supermercado\Domain\Ventas\MetodoDePago;
-use Supermercado\Infrastructure\Persistence\OfertaModel;
+use Supermercado\Domain\Ventas\Venta;
+
+use Supermercado\Domain\Ventas\VentaRepository;
 
 /**
  * Storefront público: catálogo, detalle de producto y checkout.
@@ -29,6 +34,7 @@ final class TiendaController extends Controller
         private readonly ProductoRepository $productos,
         private readonly GondolaRepository $gondolas,
         private readonly CobrarProductos $checkout,
+        private readonly VentaRepository $ventas,
     ) {}
 
     /** Landing page con productos destacados. */
@@ -146,9 +152,15 @@ final class TiendaController extends Controller
             $data['items'],
         );
 
+        // Si hay un cliente logueado, asociar la venta a su cuenta.
+        $user = $request->user();
+        $cashierId = ($user !== null && $user->rol === 'cliente')
+            ? 'cliente:' . $user->id
+            : 'storefront';
+
         $sale = $this->checkout->execute(new CobrarRequest(
             saleId: Str::uuid()->toString(),
-            cashierId: 'storefront',
+            cashierId: $cashierId,
             customerName: $data['customerName'],
             items: $items,
             metodoDePago: MetodoDePago::from($data['paymentMethod']),
@@ -208,5 +220,131 @@ final class TiendaController extends Controller
             'gondola' => $stockMap[$p->id()]['gondola'] ?? 0,
             'disponible' => ($stockMap[$p->id()]['gondola'] ?? 0) > 0,
         ], $productos);
+    }
+
+    // ─── Cuenta de cliente ───────────────────────────────────────────
+
+    /** Página de registro de cliente. */
+    public function registro(): Response
+    {
+        return Inertia::render('Tienda/Cuenta/Registro');
+    }
+
+    /** Procesa el registro de un nuevo cliente. */
+    public function registrar(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => $data['password'],
+            'rol' => 'cliente',
+        ]);
+
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return redirect()->route('tienda.catalogo');
+    }
+
+    /** Página de login de cliente. */
+    public function login(): Response
+    {
+        return Inertia::render('Tienda/Cuenta/Login');
+    }
+
+    /** Procesa el login de cliente. */
+    public function autenticar(Request $request): RedirectResponse
+    {
+        $credenciales = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        if (!Auth::attempt($credenciales, $request->boolean('remember'))) {
+            return back()->withErrors([
+                'email' => 'Las credenciales no coinciden con nuestros registros.',
+            ])->onlyInput('email');
+        }
+
+        $request->session()->regenerate();
+
+        // Staff no puede entrar por la tienda — redirige al panel admin.
+        $user = Auth::user();
+        if ($user->rol !== 'cliente') {
+            Auth::logout();
+            return back()->withErrors(['email' => 'Esta cuenta es del personal. Usá el login del panel.']);
+        }
+
+        return redirect()->intended(route('tienda.catalogo'));
+    }
+
+    /** Cierra sesión del cliente. */
+    public function cerrarSesion(Request $request): RedirectResponse
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('tienda.inicio');
+    }
+
+    /** Historial de pedidos del cliente logueado. */
+    public function pedidos(Request $request): Response
+    {
+        $user = $request->user();
+        $prefix = 'cliente:' . $user->id;
+
+        $ventas = array_filter(
+            $this->ventas->all(),
+            fn (Venta $v) => str_starts_with($v->cashierId(), $prefix),
+        );
+
+        usort($ventas, fn (Venta $a, Venta $b) => $b->createdAt() <=> $a->createdAt());
+
+        $pedidos = array_map(fn (Venta $v) => [
+            'id' => $v->id(),
+            'fecha' => $v->createdAt()->format('d/m/Y H:i'),
+            'total' => $v->total()->amount() / 100,
+            'moneda' => $v->total()->currency(),
+            'estado' => $v->status()->value,
+            'metodoDePago' => $v->metodoDePago()->value,
+            'itemsCount' => count($v->lines()),
+        ], array_values($ventas));
+
+        return Inertia::render('Tienda/Cuenta/Pedidos', ['pedidos' => $pedidos]);
+    }
+
+    /** Detalle de un pedido del cliente logueado. */
+    public function pedido(Request $request, string $id): Response|RedirectResponse
+    {
+        $user = $request->user();
+        $venta = $this->ventas->find($id);
+
+        if ($venta === null || !str_starts_with($venta->cashierId(), 'cliente:' . $user->id)) {
+            return redirect()->route('tienda.cuenta.pedidos');
+        }
+
+        return Inertia::render('Tienda/Cuenta/Pedido', [
+            'pedido' => [
+                'id' => $venta->id(),
+                'fecha' => $venta->createdAt()->format('d/m/Y H:i'),
+                'total' => $venta->total()->amount() / 100,
+                'moneda' => $venta->total()->currency(),
+                'estado' => $venta->status()->value,
+                'metodoDePago' => $venta->metodoDePago()->value,
+                'customerName' => $venta->customerName(),
+                'items' => array_map(fn ($line) => [
+                    'productName' => $line->productName(),
+                    'quantity' => $line->quantity(),
+                    'unitPrice' => $line->unitPrice()->amount() / 100,
+                ], $venta->lines()),
+            ],
+        ]);
     }
 }

@@ -28,7 +28,7 @@ class HandleInertiaRequests extends Middleware
                 'etiqueta' => $perfil->etiqueta(),
                 'paginas' => $perfil->paginas(),
             ],
-            'usuario' => $usuario !== null ? ['nombre' => $usuario->name, 'email' => $usuario->email] : null,
+            'usuario' => $usuario !== null ? ['nombre' => $usuario->name, 'email' => $usuario->email, 'rol' => $usuario->rol] : null,
         ]);
     }
 }

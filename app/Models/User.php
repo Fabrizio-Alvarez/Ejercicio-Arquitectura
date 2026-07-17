@@ -33,9 +33,10 @@ class User extends Authenticatable
 
     /**
      * Perfil (rol) del usuario, mapeado al enum App\Access\Perfil.
+     * Retorna null si el rol no corresponde a un perfil de staff (ej: cliente).
      */
-    public function perfil(): \App\Access\Perfil
+    public function perfil(): ?\App\Access\Perfil
     {
-        return \App\Access\Perfil::from((string) $this->rol);
+        return \App\Access\Perfil::tryFrom((string) $this->rol);
     }
 }
