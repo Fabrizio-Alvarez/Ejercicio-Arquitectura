@@ -47,6 +47,14 @@ function repositor(): \App\Models\User
     );
 }
 
+function cliente(): \App\Models\User
+{
+    return \App\Models\User::firstOrCreate(
+        ['email' => 'cliente@test'],
+        ['name' => 'Cliente Test', 'password' => 'secret', 'rol' => 'cliente'],
+    );
+}
+
 function fijarReloj(string $datetime = '2026-01-15T10:00:00+00:00'): void
 {
     app()->bind(

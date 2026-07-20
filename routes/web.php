@@ -1,6 +1,7 @@
 <?php
 
 use App\Facades\Perfil;
+use App\Http\Controllers\Web\PaginaWebController;
 use App\Http\Controllers\Web\TiendaController;
 use Illuminate\Support\Facades\Route;
 
