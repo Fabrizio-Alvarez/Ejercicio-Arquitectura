@@ -1,5 +1,8 @@
 <script setup>
 import { computed } from 'vue';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Filler, Tooltip, Legend } from 'chart.js';
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Filler, Tooltip, Legend);
+import { Line, Bar, Doughnut } from 'vue-chartjs';
 import StatCard from '../components/StatCard.vue';
 import Card from '../components/Card.vue';
 import { etiquetaTipoMovimiento, colorTipoMovimiento } from '../constants/etiquetas.js';
@@ -9,13 +12,104 @@ const props = defineProps({
   movimientos: { type: Object, default: () => ({}) },
 });
 
-const ventasPorDia = computed(() => props.ventas.ventasPorDia ?? []);
-const topProductos = computed(() => props.ventas.topProductos ?? []);
-const movimientosPorTipo = computed(() => props.movimientos.movimientosPorTipo ?? []);
+const ventasPorDia = computed(() => props.ventas?.ventasPorDia ?? []);
+const topProductos = computed(() => props.ventas?.topProductos ?? []);
+const movimientosPorTipo = computed(() => props.movimientos?.movimientosPorTipo ?? []);
 
-const maxDia = computed(() => Math.max(1, ...ventasPorDia.value.map(d => d.total)));
-const maxUnidades = computed(() => Math.max(1, ...topProductos.value.map(p => p.unidades)));
-const maxMovUnidades = computed(() => Math.max(1, ...movimientosPorTipo.value.map(m => m.unidades)));
+// Formatea una fecha ISO (YYYY-MM-DD o con tiempo) como dd/mm.
+function fechaCorta(fecha) {
+  if (!fecha) return '';
+  const parte = String(fecha).split('T')[0].split('-');
+  if (parte.length < 3) return fecha;
+  const [_, mes, dia] = parte;
+  return `${dia}/${mes}`;
+}
+
+// ---- Chart 1: Ventas por día (Line con relleno en gradiente esmeralda) ----
+const ventasChartData = computed(() => ({
+  labels: ventasPorDia.value.map(d => fechaCorta(d.fecha)),
+  datasets: [
+    {
+      label: 'Total',
+      data: ventasPorDia.value.map(d => d.total),
+      borderColor: '#10b981',
+      borderWidth: 2,
+      tension: 0.35,
+      fill: true,
+      pointRadius: 3,
+      pointBackgroundColor: '#10b981',
+      backgroundColor: (context) => {
+        const chart = context?.chart;
+        const { ctx, chartArea } = chart ?? {};
+        if (!ctx || !chartArea) return 'rgba(16,185,129,0.3)';
+        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        gradient.addColorStop(0, 'rgba(16,185,129,0.3)');
+        gradient.addColorStop(1, 'rgba(16,185,129,0)');
+        return gradient;
+      },
+    },
+  ],
+}));
+
+const ventasChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+  scales: {
+    y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.15)' } },
+    x: { grid: { display: false } },
+  },
+  elements: { line: { borderJoinStyle: 'round' } },
+};
+
+// ---- Chart 2: Top productos (Bar horizontal, sky blue) ----
+const productosChartData = computed(() => ({
+  labels: topProductos.value.map(p => p.productoId),
+  datasets: [
+    {
+      label: 'Unidades',
+      data: topProductos.value.map(p => p.unidades),
+      backgroundColor: '#0ea5e9',
+      borderRadius: 6,
+      barThickness: 18,
+    },
+  ],
+}));
+
+const productosChartOptions = {
+  indexAxis: 'y',
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.15)' } },
+    y: { grid: { display: false } },
+  },
+};
+
+// ---- Chart 3: Movimientos por tipo (Doughnut) ----
+const PALETA_DOUGHNUT = ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#6366f1', '#ec4899', '#14b8a6'];
+
+const movimientosChartData = computed(() => ({
+  labels: movimientosPorTipo.value.map(m =>
+    etiquetaTipoMovimiento[m.tipo]?.texto ?? m.tipo
+  ),
+  datasets: [
+    {
+      data: movimientosPorTipo.value.map(m => m.unidades),
+      backgroundColor: movimientosPorTipo.value.map((_, i) => PALETA_DOUGHNUT[i % PALETA_DOUGHNUT.length]),
+      borderWidth: 2,
+      borderColor: '#ffffff',
+    },
+  ],
+}));
+
+const movimientosChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: true, position: 'bottom' } },
+  cutout: '60%',
+};
 </script>
 
 <template>
@@ -24,56 +118,37 @@ const maxMovUnidades = computed(() => Math.max(1, ...movimientosPorTipo.value.ma
 
     <!-- KPIs -->
     <div class="grid gap-4 sm:grid-cols-3">
-      <StatCard label="Total facturado" :value="(ventas.totalGeneral ?? 0).toFixed(2)" />
-      <StatCard label="Ventas confirmadas" :value="ventas.cantidadVentas ?? 0" />
-      <StatCard label="Ticket promedio" :value="(ventas.ticketPromedio ?? 0).toFixed(2)" />
+      <StatCard label="Total facturado" :value="(ventas?.totalGeneral ?? 0).toFixed(2)" />
+      <StatCard label="Ventas confirmadas" :value="ventas?.cantidadVentas ?? 0" />
+      <StatCard label="Ticket promedio" :value="(ventas?.ticketPromedio ?? 0).toFixed(2)" />
     </div>
 
     <!-- Ventas por día -->
     <Card>
       <h3 class="mb-4 text-sm font-semibold text-slate-700">Ventas por día</h3>
-      <div v-if="ventasPorDia.length" class="flex items-end gap-2 h-48">
-        <div v-for="d in ventasPorDia" :key="d.fecha" class="flex flex-1 flex-col items-center justify-end gap-1 min-w-0">
-          <span class="text-xs text-slate-500">{{ d.total.toFixed(0) }}</span>
-          <div class="w-full rounded-t bg-emerald-500 transition-all" :style="{ height: (d.total / maxDia * 100) + '%' }"></div>
-          <span class="text-[10px] text-slate-400 truncate w-full text-center">{{ d.fecha.slice(5) }}</span>
-        </div>
+      <div v-if="ventasPorDia.length" class="h-72">
+        <Line :data="ventasChartData" :options="ventasChartOptions" />
       </div>
-      <p v-else class="text-center text-sm text-slate-400 py-10">Sin ventas registradas.</p>
+      <p v-else class="text-center text-sm text-slate-400 py-10">Sin datos</p>
     </Card>
 
-    <!-- Top productos -->
-    <Card>
-      <h3 class="mb-4 text-sm font-semibold text-slate-700">Top productos por unidades</h3>
-      <div v-if="topProductos.length" class="space-y-2">
-        <div v-for="p in topProductos" :key="p.productoId" class="flex items-center gap-3">
-          <span class="w-24 font-mono text-xs text-slate-600 truncate">{{ p.productoId }}</span>
-          <div class="flex-1 rounded-full bg-slate-100 overflow-hidden">
-            <div class="h-6 rounded-full bg-sky-500 flex items-center justify-end pr-2" :style="{ width: (p.unidades / maxUnidades * 100) + '%' }">
-              <span class="text-xs font-medium text-white">{{ p.unidades }}</span>
-            </div>
-          </div>
-          <span class="w-20 text-right text-xs text-slate-500">{{ p.total.toFixed(2) }}</span>
+    <!-- Top productos + Movimientos por tipo -->
+    <div class="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <h3 class="mb-4 text-sm font-semibold text-slate-700">Top productos por unidades</h3>
+        <div v-if="topProductos.length" class="h-72">
+          <Bar :data="productosChartData" :options="productosChartOptions" />
         </div>
-      </div>
-      <p v-else class="text-center text-sm text-slate-400 py-10">Sin datos.</p>
-    </Card>
+        <p v-else class="text-center text-sm text-slate-400 py-10">Sin datos</p>
+      </Card>
 
-    <!-- Movimientos por tipo -->
-    <Card>
-      <h3 class="mb-4 text-sm font-semibold text-slate-700">Movimientos de stock por tipo</h3>
-      <div v-if="movimientosPorTipo.length" class="space-y-3">
-        <div v-for="m in movimientosPorTipo" :key="m.tipo" class="flex items-center gap-3">
-          <span class="w-28 text-sm text-slate-600">{{ etiquetaTipoMovimiento[m.tipo]?.texto ?? m.tipo }}</span>
-          <div class="flex-1 rounded-full bg-slate-100 overflow-hidden">
-            <div class="h-7 rounded-full transition-all flex items-center justify-end pr-2" :class="colorTipoMovimiento[m.tipo] ?? 'bg-slate-400'" :style="{ width: Math.max(8, m.unidades / maxMovUnidades * 100) + '%' }">
-              <span class="text-xs font-medium text-white">{{ m.unidades }} u.</span>
-            </div>
-          </div>
-          <span class="w-16 text-right text-xs text-slate-500">{{ m.cantidad }} reg.</span>
+      <Card>
+        <h3 class="mb-4 text-sm font-semibold text-slate-700">Movimientos de stock por tipo</h3>
+        <div v-if="movimientosPorTipo.length" class="h-72">
+          <Doughnut :data="movimientosChartData" :options="movimientosChartOptions" />
         </div>
-      </div>
-      <p v-else class="text-center text-sm text-slate-400 py-10">Sin movimientos.</p>
-    </Card>
+        <p v-else class="text-center text-sm text-slate-400 py-10">Sin datos</p>
+      </Card>
+    </div>
   </section>
 </template>

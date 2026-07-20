@@ -5,6 +5,7 @@ import { useCart } from '../../composables/useCart.js';
 import { useFormato } from '../../composables/useFormato.js';
 import { useToast } from '../../composables/useToast.js';
 import { emojiProducto, colorProducto } from '../../constants/emojis.js';
+import { CATEGORIAS, categoriaDe, infoCategoria } from '../../constants/categorias.js';
 
 const props = defineProps({
     productos: { type: Array, default: () => [] },
@@ -16,9 +17,12 @@ const formato = useFormato();
 const toast = useToast();
 const emoji = emojiProducto;
 const color = colorProducto;
+const cat = infoCategoria;
+const cats = CATEGORIAS;
 
 const busqueda = ref(props.filtros.q ?? '');
 const orden = ref(props.filtros.sort ?? 'nombre');
+const categoriaActiva = ref(null);
 
 const productosFiltrados = computed(() => {
     let lista = props.productos;
@@ -28,6 +32,10 @@ const productosFiltrados = computed(() => {
         lista = lista.filter((p) =>
             p.nombre.toLowerCase().includes(q) || p.id.toLowerCase().includes(q),
         );
+    }
+
+    if (categoriaActiva.value) {
+        lista = lista.filter((p) => categoriaDe(p.id) === categoriaActiva.value);
     }
 
     return lista;
@@ -75,6 +83,34 @@ function buscar() {
             </select>
         </div>
 
+        <!-- Category filter chips -->
+        <div class="mb-6 flex flex-wrap gap-2">
+            <button
+                @click="categoriaActiva = null"
+                :class="[
+                    'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                    categoriaActiva === null
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
+                ]"
+            >
+                Todos
+            </button>
+            <button
+                v-for="categoria in cats"
+                :key="categoria.id"
+                @click="categoriaActiva = categoria.id"
+                :class="[
+                    'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                    categoriaActiva === categoria.id
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
+                ]"
+            >
+                {{ categoria.emoji }} {{ categoria.nombre }}
+            </button>
+        </div>
+
         <!-- Product grid -->
         <div v-if="productosFiltrados.length === 0" class="text-center py-20">
             <p class="text-lg text-slate-400">No se encontraron productos.</p>
@@ -88,8 +124,16 @@ function buscar() {
                 class="group flex flex-col rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg hover:border-emerald-300 transition-all duration-200"
             >
                 <!-- Product "image" area -->
-                <Link :href="`/tienda/producto/${producto.id}`" :class="`aspect-square bg-gradient-to-br ${color(producto.id)} flex items-center justify-center`">
+                <Link :href="`/tienda/producto/${producto.id}`" :class="`relative aspect-square bg-gradient-to-br ${color(producto.id)} flex items-center justify-center`">
                     <span class="text-6xl drop-shadow-lg group-hover:scale-125 transition-transform duration-300">{{ emoji(producto.nombre) }}</span>
+                    <!-- Category badge -->
+                    <span class="absolute top-2 right-2 rounded-full bg-white/80 backdrop-blur px-2 py-0.5 text-xs font-medium text-slate-700">
+                        {{ cat(producto.id).emoji }} {{ cat(producto.id).nombre }}
+                    </span>
+                    <!-- Sin stock overlay -->
+                    <div v-if="!producto.disponible" class="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <span class="rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">Sin stock</span>
+                    </div>
                 </Link>
 
                 <!-- Info -->
@@ -98,6 +142,7 @@ function buscar() {
                         {{ producto.nombre }}
                     </Link>
                     <p class="mt-1 text-xs font-mono text-slate-400">{{ producto.id }}</p>
+                    <p v-if="producto.disponible && producto.gondola <= 15" class="mt-1 text-xs font-medium text-amber-600">¡Pocas unidades!</p>
 
                     <div class="mt-auto pt-3 flex items-center justify-between">
                         <span class="text-xl font-bold text-slate-800">

@@ -13,6 +13,11 @@ use Supermercado\Domain\Stock\Deposito;
 use Supermercado\Domain\Stock\DepositoRepository;
 use Supermercado\Domain\Stock\Gondola;
 use Supermercado\Domain\Stock\GondolaRepository;
+use Supermercado\Domain\Ventas\EstadoDeVenta;
+use Supermercado\Domain\Ventas\LineaDeVenta;
+use Supermercado\Domain\Ventas\MetodoDePago;
+use Supermercado\Domain\Ventas\Venta;
+use Supermercado\Domain\Ventas\VentaRepository;
 use Supermercado\Infrastructure\Persistence\OfertaModel;
 
 /**
@@ -104,5 +109,72 @@ class DatabaseSeeder extends Seeder
 
         // Cliente demo para testing del storefront.
         User::firstOrCreate(['email' => 'cliente@supermercado.test'], ['name' => 'Cliente Demo', 'password' => 'password', 'rol' => 'cliente']);
+
+        // ~30 ventas confirmadas distribuidas en los últimos 7 días para que
+        // los reportes y el tablero del cajero tengan datos que graficar.
+        $this->seedVentasDemo($products, app(VentaRepository::class));
+    }
+
+    /**
+     * Genera ventas confirmadas determinísticas (mt_srand fija) repartidas
+     * en los últimos 7 días. Usa IDs fijos (demo-venta-N) para que el seed
+     * sea idempotente: re-ejecutar el seeder sobrescribe, no duplica.
+     */
+    private function seedVentasDemo(ProductoRepository $productos, VentaRepository $ventas): void
+    {
+        $todos = $productos->all();
+        if ($todos === []) {
+            return;
+        }
+
+        $metodos  = MetodoDePago::cases();
+        $nombres  = ['Cliente Demo', 'María González', 'Juan Pérez', 'Ana Martínez', 'Carlos Ruiz', 'Sofía Romero'];
+        $cajeros  = ['cajero@supermercado.test', 'demo', 'storefront', 'cliente:1'];
+        $ahora    = new \DateTimeImmutable();
+
+        \mt_srand(42); // Determinístico — mismos datos en cada seed.
+
+        for ($i = 1; $i <= 30; $i++) {
+            $diasAtras = \mt_rand(0, 6);
+            $hora      = \mt_rand(8, 20);
+            $minuto    = \mt_rand(0, 59);
+            $fecha     = $ahora->modify("-{$diasAtras} days")->setTime($hora, $minuto, 0);
+
+            $cantLineas  = \mt_rand(1, 4);
+            $lineas      = [];
+            $usados      = [];
+
+            for ($j = 0; $j < $cantLineas; $j++) {
+                $idx = \mt_rand(0, count($todos) - 1);
+                if (\in_array($idx, $usados, true)) {
+                    continue;
+                }
+                $usados[] = $idx;
+
+                $p = $todos[$idx];
+                $lineas[] = new LineaDeVenta(
+                    $p->id(),
+                    $p->name(),
+                    \mt_rand(1, 5),
+                    $p->price(),
+                );
+            }
+
+            if ($lineas === []) {
+                continue;
+            }
+
+            $venta = Venta::reconstitute(
+                id: "demo-venta-{$i}",
+                cashierId: $cajeros[\mt_rand(0, count($cajeros) - 1)],
+                customerName: $nombres[\mt_rand(0, count($nombres) - 1)],
+                metodoDePago: $metodos[\mt_rand(0, count($metodos) - 1)],
+                createdAt: $fecha,
+                status: EstadoDeVenta::Confirmada,
+                lines: $lineas,
+            );
+
+            $ventas->save($venta);
+        }
     }
 }
