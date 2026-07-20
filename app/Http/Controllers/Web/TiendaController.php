@@ -23,6 +23,7 @@ use Supermercado\Domain\Ventas\MetodoDePago;
 use Supermercado\Domain\Ventas\Venta;
 
 use Supermercado\Domain\Ventas\VentaRepository;
+use Supermercado\Infrastructure\Persistence\OfertaModel;
 
 /**
  * Storefront público: catálogo, detalle de producto y checkout.

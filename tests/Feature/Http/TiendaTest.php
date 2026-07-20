@@ -173,15 +173,21 @@ it('rechaza registro con email duplicado', function () {
 });
 
 it('autentica un cliente válido', function () {
-    $this->post('/tienda/login', [
+    cliente();
+
+    $response = $this->post('/tienda/login', [
         'email' => 'cliente@test',
         'password' => 'secret',
-    ])->assertRedirect('/tienda/catalogo');
+    ]);
 
-    $this->assertAuthenticated();
+    $response->assertRedirect();
+    $this->assertAuthenticated('web');
+    expect(Auth::user()->rol)->toBe('cliente');
 });
 
 it('rechaza login de personal del supermercado', function () {
+    cajero();
+
     $response = $this->post('/tienda/login', [
         'email' => 'cajero@test',
         'password' => 'secret',
