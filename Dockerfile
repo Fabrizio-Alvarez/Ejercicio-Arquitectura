@@ -27,5 +27,6 @@ RUN cp .env.example .env \
 
 EXPOSE 8000
 
-# Migrate + seed the demo dataset, then serve on the provider's port.
-CMD ["sh", "-c", "php artisan migrate --force --seed && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+# Ensure storage structure exists (Fly volume mount starts empty), then
+# migrate + seed the demo dataset, and serve on the provider's port.
+CMD ["sh", "-c", "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/supermercado bootstrap/cache && php artisan migrate --force --seed && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]

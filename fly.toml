@@ -1,0 +1,43 @@
+# Fly.io configuration for the supermarket storefront.
+# Single-container deployment with persistent storage for JSON repositories.
+
+app = "supermercado-ddd"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_ENV = "production"
+  APP_NAME = "Supermercado"
+  LOG_CHANNEL = "stderr"
+  LOG_LEVEL = "warning"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 100
+    soft_limit = 50
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/tienda"
+
+# Persistent volume for JSON repositories (products, stock, sales)
+[[mounts]]
+  source = "supermercado_data"
+  destination = "/var/www/html/storage"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
