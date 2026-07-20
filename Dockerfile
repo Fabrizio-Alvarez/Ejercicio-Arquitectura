@@ -1,5 +1,7 @@
-# Production-ish image for the demo deploy (Railway / Render / fly.io).
-# Single container serving the API via `php artisan serve`.
+# Production-ish image for the demo deploy (Fly.io / Railway / Render).
+# Single container: PHP API + Inertia/Vue frontend (Vite-compiled).
+
+# ---- Stage 1: PHP dependencies (composer) ----
 FROM composer:2 AS vendor
 
 WORKDIR /app
@@ -7,6 +9,16 @@ COPY composer.json composer.lock artisan ./
 COPY database/ database/
 RUN composer install --prefer-dist --no-interaction --no-scripts
 
+# ---- Stage 2: Frontend assets (Vite / Vue / Tailwind) ----
+FROM node:22-alpine AS frontend
+
+WORKDIR /app
+COPY package.json package-lock.json vite.config.js ./
+COPY resources/ resources/
+COPY public/ public/
+RUN npm ci --ignore-scripts && npm run build
+
+# ---- Stage 3: Runtime ----
 FROM php:8.4-cli-alpine
 
 WORKDIR /var/www/html
@@ -18,6 +30,7 @@ RUN apk add --no-cache sqlite-libs postgresql-libs \
     && apk del .build-deps
 
 COPY --from=vendor /app/vendor ./vendor
+COPY --from=frontend /app/public/build ./public/build
 COPY . .
 
 # Production env baseline; the deploy provider overrides what it needs.

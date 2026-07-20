@@ -10,6 +10,8 @@ primary_region = "gru"
 [env]
   APP_ENV = "production"
   APP_NAME = "Supermercado"
+  APP_URL = "https://supermercado-ddd.fly.dev"
+  APP_ASSET_URL = "https://supermercado-ddd.fly.dev"
   LOG_CHANNEL = "stderr"
   LOG_LEVEL = "warning"
 
