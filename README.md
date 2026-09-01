@@ -230,15 +230,17 @@ y [`docs/specs/Especificaciones no funcionales.md`](docs/specs/Especificaciones%
 
 Single container vía `Dockerfile` (lee `PORT`, corre migraciones + seed al iniciar).
 
-**Render (elegido — free, sin tarjeta)**, via el blueprint `render.yaml`:
+**Railway (elegido)**:
 
-1. [Render](https://render.com) → **New → Blueprint** → conectar GitHub → este repo → **Apply**.
-2. Build ~5 min → URL pública `supermercado-ddd.onrender.com`.
-3. Custom domain: `supermercado.falvarez.dev` (CNAME → la URL, DNS only en Cloudflare).
-4. El workflow `.github/workflows/keepalive.yml` pinguea `/up` cada 10 min para que
-   el free tier no duerma (re-habilitarlo si GitHub lo desactiva por inactividad).
-5. Probar `<url>/up` (health), `<url>/tienda` (storefront) y `<url>/api/stock` (API).
+1. [Railway](https://railway.app) → **New Project → Deploy from GitHub repo** → este repo.
+2. Railway detecta el `Dockerfile`, buildea y deploya (inyecta `PORT`).
+3. Settings → Networking → **Generate Domain** → URL pública.
+4. Custom domain: Settings → Networking → **Custom Domain** → `supermercado.falvarez.dev`;
+   en Cloudflare, CNAME `supermercado` → target que indica Railway, **DNS only** (nube gris).
+5. Opcional (datos persisten entre redeploys): Settings → **Volumes** → mount en
+   `/var/www/html/storage`.
+6. Probar `<url>/up` (health), `<url>/tienda` (storefront) y `<url>/api/stock` (API).
 
-Alternativas ya configuradas: `fly.toml` (Fly.io, volumen persistente, requiere tarjeta)
-y Railway (crédito único). Nota: en free tiers sin disco persistente los datos se
-re-seedean en cada arranque — aceptable para demo.
+Alternativa ya configurada: `fly.toml` (Fly.io, volumen persistente incluido, mismo
+comando de arranque). Nota: sin volumen, los datos se re-seedean en cada arranque —
+aceptable para demo.
